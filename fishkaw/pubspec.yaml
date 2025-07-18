@@ -15,6 +15,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  image_picker: ^1.0.4
+  photo_manager: ^3.1.1
   flutter_launcher_icons: ^0.13.1
   flutter_lints: ^5.0.0
 
@@ -27,3 +29,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/fish_bg.jpg
+    - assets/images/fish_koi.png
+    - assets/images/avatar.jpg
