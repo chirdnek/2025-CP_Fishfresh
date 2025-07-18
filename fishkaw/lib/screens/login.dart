@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'signup.dart'; 
+import 'signup.dart';
+import 'home.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,8 +12,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool passwordVisible = false;
 
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -22,18 +23,13 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           // Background image
           Image.asset(
-            'assets/images/fish_bg.jpg', // ✅ Make sure to add this image in your assets
+            'assets/images/fish_bg.jpg',
             fit: BoxFit.cover,
           ),
 
-          // Semi-transparent overlay
+          // Semi-transparent green overlay
           Container(
-            color: const Color.fromRGBO(
-              0,
-              180,
-              120,
-              0.4,
-            ), // green tint (adjust as needed)
+            color: const Color.fromRGBO(0, 180, 120, 0.4),
           ),
 
           // Main content
@@ -59,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 40),
 
-                  // Email field
+                  // Email Field
                   TextField(
                     controller: emailController,
                     decoration: InputDecoration(
@@ -75,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Password field
+                  // Password Field
                   TextField(
                     controller: passwordController,
                     obscureText: !passwordVisible,
@@ -108,21 +104,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+         
+                      },
                       child: const Text(
-                        'Forgot Password',
+                        'Forgot Password?',
                         style: TextStyle(color: Colors.white),
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 10),
 
                   // Login Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const HomePage()),
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -138,29 +142,30 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Sign Up link
+                  // Sign Up Prompt
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        "Didn't have any account? ",
+                        "Don't have an account? ",
                         style: TextStyle(color: Colors.white70),
                       ),
-                    GestureDetector(
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SignUpScreen()),
-    );
-  },
-  child: const Text(
-    'Sign Up here',
-    style: TextStyle(
-      color: Colors.lightBlueAccent,
-      fontWeight: FontWeight.bold,
-    ),
-  ),
-)
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const SignUpScreen()),
+                          );
+                        },
+                        child: const Text(
+                          'Sign Up here',
+                          style: TextStyle(
+                            color: Colors.lightBlueAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
