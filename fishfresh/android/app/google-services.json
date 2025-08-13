@@ -12,7 +12,20 @@
           "package_name": "com.example.fishfresh"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "505663717633-97eid7ja89trs0voqq4hvjr717iig1b2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fishfresh",
+            "certificate_hash": "371cc69640b3ca3244e92a69760d4d50d01db88c"
+          }
+        },
+        {
+          "client_id": "505663717633-knnkpmbavlgid4qdesksrgj8anhcecas.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCD90Hv1XNK-93vW0gF2PkyKvxAt3rk784"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "505663717633-knnkpmbavlgid4qdesksrgj8anhcecas.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
