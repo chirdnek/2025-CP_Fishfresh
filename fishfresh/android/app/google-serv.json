@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "505663717633",
+    "project_id": "fishfresh-10638",
+    "storage_bucket": "fishfresh-10638.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:505663717633:android:ce9b32fddabec9b19f1b00",
+        "android_client_info": {
+          "package_name": "com.example.fishfresh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCD90Hv1XNK-93vW0gF2PkyKvxAt3rk784"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

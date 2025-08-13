@@ -1,0 +1,86 @@
+### Project Context — Zamboanga City
+Zamboanga City is a major fishing hub. Fishing is woven into daily life and the local economy. Consumers depend on fresh seafood for nutrition and health; trust in vendors and local markets hinges on freshness.
+
+### Why Freshness Matters
+Freshness affects safety, taste, texture, and nutrients. Spoiled seafood risks illness. Reliable freshness boosts consumer trust and loyalty and supports higher-value trade.
+
+### Problem with Traditional Checks
+Current checks (eyes, gill smell/color, skin/flesh feel) are subjective and inconsistent. Sellers and buyers may disagree; consumers often lack skill to assess accurately. This causes distrust, unfair pricing, and safety risk.
+
+### Need for an Objective Tool
+There’s no quick, universal freshness marker at the point of sale. The city needs a portable, easy-to-use, real-time, objective method that improves safety, trust, and transparency.
+
+### Proposed Solution — FishFresh (Overview)
+A mobile computer-vision app analyzes photos of fish (eyes, gills, skin/shine) to produce an objective freshness score. Runs on a smartphone camera; provides consistent guidance at markets and groceries.
+
+### How FishFresh Works (High-level)
+1) Capture fish photo (good lighting, steady phone).  
+2) Model analyzes eye clarity, gill color, skin/shine.  
+3) App outputs an easy, objective score (and label like Fresh / Semi-fresh / Not fresh).  
+4) Users make safer, more confident purchases; vendors benefit from trust and fair pricing.
+
+### Benefits to Users & Community
+• Safer food choices and fewer spoiled purchases.  
+• Confidence and fairness in pricing.  
+• Less waste; more trust in local seafood.  
+• Simple, portable tool—no expertise needed.
+
+### General Problem Statement
+The city lacks an objective, accurate, readily available method to determine fish freshness, causing inconsistency, reduced trust, and inefficiency.
+
+### Specific Problems
+1) Subjective human judgment leads to disagreement and unreliability.  
+2) Computer vision/mobile methods are not yet broadly used in local markets.  
+3) Some target users (e.g., fishermen, market sellers) have low technical literacy.  
+4) Local studies lack robust visual-signal identification (eyes/gills/skin) for freshness.  
+5) No scientific tool → unfair prices, lost trust, and higher post-harvest losses.
+
+### Purpose & Description of FishFresh
+Provide an ergonomic, objective, phone-based freshness score so buyers can avoid unsafe/low-quality fish and pay fairly. Supports faster, transparent transactions and improves market trust.
+
+### What Makes It Novel
+Brings computer vision directly to consumers’ phones; replaces subjective eyeballing with consistent, data-driven scoring; tackles a daily, real-world pain point in local markets.
+
+### Primary Objective
+Build and evaluate a real-time mobile app that scans fish freshness and replaces subjective judgment with a standard, measurable approach.
+
+### Specific Objectives
+• Use visual features (eye clarity, gill color, skin brightness) to assess freshness.  
+• Build a mobile app to capture and analyze fish images.  
+• Integrate a trained model for ~3–5s analysis per scan.  
+• Design an algorithm to output a clear, objective freshness score.
+
+### Scope
+Mobile app for consumers/buyers in Zamboanga City at point-of-sale (markets/grocers). Features: image capture, CV model inference, and simple result UI. No special skills needed.
+
+### Limitations
+• No IoT hardware; mobile only.  
+• Visual-only freshness (not pre-catch or long-term storage factors).  
+• Not for chopped/cut fish.  
+• Trained for common local species; exotic/rare species out of scope.  
+• Camera quality and lighting can affect performance.
+
+### Significance of the Study
+Shows practical AI/CV for food quality; improves public health and market transparency; empowers ordinary consumers; supports sustainable, trustworthy seafood trade in the community.
+
+### Definitions (selected)
+Mobile Operating System — phone platform that provides camera/compute for the app.  
+Computer Vision — AI that interprets images/video.  
+Fish Freshness Assessment — evaluating quality/decay stage.  
+Image Processing — computational transforms to enhance/extract info.  
+Artificial Intelligence — systems performing tasks needing human-like intelligence.  
+Machine Learning — AI that learns patterns from data without explicit rules.  
+Freshness Indicators — measurable signals that reflect food freshness.  
+Spoilage — process of decay in food.  
+Subjective Assessment — evaluation based on personal judgment.  
+Objective Assessment — evaluation based on measurable, unbiased criteria.
+
+### Related Work — Highlights
+• Wavelet/gill analysis can classify freshness (non-destructive) with high accuracy.  
+• Eye-image analysis via DL+ML (MobileNetV2, VGG16, ResNet50 with SVM/ANN/LR) achieved up to ~100% on specific datasets.  
+• K-NN with image features (RGB/ROI on eyes/gills/skin) works in mobile settings.  
+• YOLOv5/Faster-R-CNN for eye detection; YOLOv5 hit ~99.3% on a freshness dataset.  
+• Hyperspectral imaging is powerful in labs, but less practical for mobile retail use.
+
+### Synthesis
+Literature shows subjective checks can be replaced by AI on visual cues (eyes/gills/skin). Mobile apps can deliver real-time, non-destructive, accurate assessments. This underpins FishFresh’s feasibility and value for post-harvest quality in local markets.

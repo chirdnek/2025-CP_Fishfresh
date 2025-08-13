@@ -1,12 +1,15 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
+import 'dart:io';
 import 'package:flutter/material.dart';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:fishfresh/screens/profile_screens.dart';
-import 'dart:io';
 import 'package:fishfresh/screens/login.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:fishfresh/services/biometrics_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -16,15 +19,28 @@ class ProfileSettingsScreen extends StatefulWidget {
 }
 
 class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
-  bool _isFaceIdEnabled = true;
+  /// Biometrics toggle state
+  bool _isBiometricsEnabled = false;
+
   String _firstName = '';
   String _lastName = '';
   String? _localImagePath;
 
+  final _bio = BiometricsService();
+  bool _isSupported = false;
+  List<BiometricType> _availableTypes = const [];
+  bool _busy = false;
+
   @override
   void initState() {
     super.initState();
-    _fetchUserName();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await _fetchUserName();
+    await _loadBiometricsState();
+    await _probeDeviceBiometrics();
   }
 
   Future<void> _fetchUserName() async {
@@ -32,10 +48,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       final data = doc.data();
       setState(() {
@@ -48,9 +62,165 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     }
   }
 
+  Future<void> _probeDeviceBiometrics() async {
+    final supported = await _bio.isDeviceSupported();
+    final types = await _bio.getAvailableBiometrics();
+    setState(() {
+      _isSupported = supported;
+      _availableTypes = types;
+    });
+  }
+
+  Future<void> _loadBiometricsState() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final snap =
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = snap.data();
+      setState(() {
+        _isBiometricsEnabled = (data?['biometricsEnabled'] ?? false) as bool;
+      });
+    } catch (e) {
+      debugPrint('loadBiometricsState: $e');
+    }
+  }
+
+  Future<void> _saveBiometricsState(bool enabled) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'biometricsEnabled': enabled,
+        // store which types were available when toggled
+        'biometricTypes': _availableTypes.map((e) => e.name).toList(),
+        'biometricsUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('saveBiometricsState: $e');
+    }
+  }
+
+  String _biometricLabel() {
+    final t = _availableTypes.toSet();
+    if (t.contains(BiometricType.face)) return 'Face ID';
+    if (t.contains(BiometricType.iris)) return 'Iris';
+    if (t.contains(BiometricType.fingerprint)) {
+      return Platform.isIOS ? 'Touch ID' : 'Fingerprint';
+    }
+    return 'Biometrics';
+  }
+
+  Future<void> _onToggleBiometrics(bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+
+    try {
+      if (!_isSupported || _availableTypes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometrics not available on this device.')),
+        );
+        return;
+      }
+
+      if (value) {
+        // 1) Try biometric-only
+        var (ok, msg) = await _bio.authenticate(
+          allowDeviceCredential: false,
+          reason: 'Enable ${_biometricLabel()} for security',
+        );
+
+        // 2) If failed on Android, allow device credential fallback
+        if (!ok && Theme.of(context).platform == TargetPlatform.android) {
+          (ok, msg) = await _bio.authenticate(
+            allowDeviceCredential: true,
+            reason: 'Confirm your identity',
+          );
+        }
+
+        if (!ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text(msg ?? '${_biometricLabel()} authentication failed or canceled.'),
+            ),
+          );
+          return;
+        }
+
+        await _saveBiometricsState(true);
+        setState(() => _isBiometricsEnabled = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${_biometricLabel()} enabled.')),
+        );
+      } else {
+        final shouldDisable = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Disable biometrics?'),
+            content: const Text('You will no longer be asked to use biometrics.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Disable')),
+            ],
+          ),
+        );
+        if (shouldDisable != true) return;
+
+        await _saveBiometricsState(false);
+        setState(() => _isBiometricsEnabled = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometrics disabled.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _testBiometrics() async {
+    if (!_isBiometricsEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enable biometrics first.')),
+      );
+      return;
+    }
+    final (success, msg) =
+        await _bio.authenticate(allowDeviceCredential: false, reason: 'Authenticate');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            success ? 'Authentication success.' : (msg ?? 'Authentication failed or canceled.')),
+      ),
+    );
+  }
+
+  /// Full sign-out (Google + Firebase) so the Google account chooser shows next time.
+  Future<void> _fullSignOut() async {
+    final auth = FirebaseAuth.instance;
+
+    final providers =
+        auth.currentUser?.providerData.map((p) => p.providerId).toList() ?? [];
+    if (providers.contains('google.com')) {
+      final google = GoogleSignIn();
+      try {
+        await google.disconnect(); // revoke consent if possible
+      } catch (_) {}
+      try {
+        await google.signOut(); // clear cached account
+      } catch (_) {}
+    }
+
+    await auth.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = const Color(0xFF000000);
+    const backgroundColor = Color(0xFF000000);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -80,6 +250,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ],
             ),
           ),
+          if (_busy)
+            Container(
+              color: Colors.black54,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
@@ -164,17 +339,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 radius: 25,
                 backgroundImage: _localImagePath != null
                     ? FileImage(File(_localImagePath!))
-                    : const AssetImage('assets/images/avatar.jpg')
-                          as ImageProvider,
+                    : const AssetImage('assets/images/avatar.jpg') as ImageProvider,
               ),
               Positioned(
                 top: -4,
                 right: -4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 1,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
@@ -201,8 +372,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             radius: 25,
             backgroundImage: _localImagePath != null
                 ? FileImage(File(_localImagePath!))
-                : const AssetImage('assets/images/avatar.jpg')
-                      as ImageProvider,
+                : const AssetImage('assets/images/avatar.jpg') as ImageProvider,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -229,31 +399,69 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
+  /// FIXED: balanced braces/parentheses and working logout
   Widget _buildSettingsList() {
+    final biometricsTitle = _biometricLabel();
+    final sub = !_isSupported || _availableTypes.isEmpty
+        ? 'Biometrics not available'
+        : _isBiometricsEnabled
+            ? 'Enabled • $biometricsTitle'
+            : 'Use $biometricsTitle to secure the app';
+
     return Column(
       children: [
+        // Biometrics with working toggle
         _settingItem(
           icon: Icons.lock_outline_rounded,
-          title: 'Face ID / Touch ID',
-          subtitle: 'Manage your device security',
+          title: biometricsTitle,
+          subtitle: sub,
           trailing: Switch(
-            value: _isFaceIdEnabled,
-            onChanged: (value) {
-              setState(() {
-                _isFaceIdEnabled = value;
-              });
-            },
+            value: _isBiometricsEnabled,
+            onChanged: (_isSupported && _availableTypes.isNotEmpty && !_busy)
+                ? _onToggleBiometrics
+                : null,
             activeTrackColor: const Color(0xFF28C18E),
             activeColor: Colors.white,
             inactiveTrackColor: Colors.grey[800],
             inactiveThumbColor: Colors.grey[400],
           ),
+          onTap: () async {
+            if (!_isSupported || _availableTypes.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Biometrics not available on this device.')),
+              );
+              return;
+            }
+            if (_isBiometricsEnabled) {
+              await _testBiometrics();
+            }
+          },
         ),
+
+        // Helper row to quickly test/enable
+        if (_isSupported && _availableTypes.isNotEmpty)
+          _settingItem(
+            icon: Icons.verified_user_outlined,
+            title: _isBiometricsEnabled ? 'Test now' : 'Set up biometrics',
+            subtitle: _isBiometricsEnabled
+                ? 'Make sure your ${_biometricLabel()} works'
+                : 'Enable the switch above to turn on ${_biometricLabel()}',
+            onTap: () async {
+              if (_isBiometricsEnabled) {
+                await _testBiometrics();
+              } else {
+                await _onToggleBiometrics(true);
+              }
+            },
+          ),
+
         _settingItem(
           icon: Icons.shield_outlined,
           title: 'Two-Factor Authentication',
           subtitle: 'Further secure your account for safety',
         ),
+
+        // Logout (clears Google too)
         _settingItem(
           icon: Icons.logout,
           title: 'Log out',
@@ -279,14 +487,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
             if (shouldLogout == true) {
               try {
-                await FirebaseAuth.instance.signOut();
+                await _fullSignOut();
+                if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                   (route) => false,
                 );
               } catch (e) {
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Logout failed: ${e.toString()}')),
+                  SnackBar(content: Text('Logout failed: $e')),
                 );
               }
             }
@@ -311,66 +521,57 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         _settingItem(title: 'More', hasIcon: false, hasArrow: false),
         _settingItem(title: 'About us', hasIcon: false),
         _settingItem(title: 'Privacy policy', hasIcon: false),
-         _settingItem(
-        icon: Icons.delete_forever,
-        title: 'Delete Account',
-        subtitle: 'Permanently remove your account',
-        onTap: () async {
-          final confirmDelete = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Delete Account'),
-              content: const Text(
-                'This action is permanent and cannot be undone.\n\nAre you sure you want to delete your account?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
+        _settingItem(
+          icon: Icons.delete_forever,
+          title: 'Delete Account',
+          subtitle: 'Permanently remove your account',
+          onTap: () async {
+            final confirmDelete = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Delete Account'),
+                content: const Text(
+                  'This action is permanent and cannot be undone.\n\nAre you sure you want to delete your account?',
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text(
-                    'Delete',
-                    style: TextStyle(color: Colors.red),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel'),
                   ),
-                ),
-              ],
-            ),
-          );
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+            );
 
-          if (confirmDelete == true) {
-            try {
-              final user = FirebaseAuth.instance.currentUser;
-              final uid = user?.uid;
+            if (confirmDelete == true) {
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                final uid = user?.uid;
 
-              if (user != null && uid != null) {
-                // Delete user document from Firestore
-                await FirebaseFirestore.instance.collection('users').doc(uid).delete();
-
-                // Delete Firebase Auth account
-                await user.delete();
-
-                // Navigate to login screen
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
+                if (user != null && uid != null) {
+                  await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+                  await user.delete();
+                  if (!mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                debugPrint('Account deletion error: $e');
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete account: $e')),
                 );
               }
-            } catch (e) {
-              debugPrint('Account deletion error: $e');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to delete account: ${e.toString()}')),
-              );
             }
-          }
-        },
-      ),
-    ],
-  );
-}
-    
-    
+          },
+        ),
+      ],
+    );
   }
 
   Widget _settingItem({
@@ -386,21 +587,12 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       leading: hasIcon ? Icon(icon, color: Colors.grey[400]) : null,
-      title: Text(
-        title,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
-      ),
+      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
       subtitle: subtitle != null
-          ? Text(
-              subtitle,
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            )
+          ? Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 12))
           : null,
-      trailing:
-          trailing ??
-          (hasArrow
-              ? Icon(Icons.chevron_right, color: Colors.grey[600])
-              : null),
+      trailing: trailing ??
+          (hasArrow ? Icon(Icons.chevron_right, color: Colors.grey[600]) : null),
     );
   }
-
+}
