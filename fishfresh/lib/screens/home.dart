@@ -13,10 +13,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
-
+import 'package:fishfresh/widgets/biometric_gate.dart';
 import 'faq_screen.dart';
 import 'profile_settings_screen.dart';
-
+import 'dart:typed_data';
+import 'package:opencv_4/opencv_4.dart';
 import 'dart:ui';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -30,14 +31,21 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-
-
-
-
-
-
-
-/// Full, fixed FishScanCamera
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'FishFresh',
+      debugShowCheckedModeBanner: false,
+      home: const BiometricGate(
+        // ignore: sort_child_properties_last
+        child: HomePage(),
+        lockAfter: Duration(minutes: 2), // change to your preference
+      ),
+    );
+  }
+}
 class FishScanCamera extends StatefulWidget {
   final List<CameraDescription> cameras;
   const FishScanCamera({super.key, required this.cameras});
@@ -45,6 +53,8 @@ class FishScanCamera extends StatefulWidget {
   @override
   State<FishScanCamera> createState() => _FishScanCameraState();
 }
+
+
 
 class _FishScanCameraState extends State<FishScanCamera> with WidgetsBindingObserver {
   CameraController? _controller;
@@ -62,6 +72,26 @@ class _FishScanCameraState extends State<FishScanCamera> with WidgetsBindingObse
   int _currentCameraIndex = 0;
 
   Timer? _scanTimer;
+
+
+
+
+
+// ignore: unused_element
+Future<Uint8List?> _processWithOpenCV(String imagePath) async {
+  try {
+    // Use named parameters: pathString + outputType
+    final Uint8List? output = await Cv2.cvtColor(
+      pathString: imagePath,
+      outputType: Cv2.COLOR_BGR2GRAY, // if this constant isn't found in your version, use: Cv2.colorBGR2GRAY
+    );
+    return output;
+  } catch (e) {
+    debugPrint('OpenCV processing error: $e');
+    return null;
+  }
+}
+
 
   @override
   void initState() {
@@ -582,12 +612,18 @@ class _HomePageState extends State<HomePage> {
             context,
             MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
           ),
-          child: CircleAvatar(
-            radius: 20,
-            backgroundImage: (_localImagePath != null && File(_localImagePath!).existsSync())
-                ? FileImage(File(_localImagePath!))
-                : const AssetImage('assets/images/avatar.jpg') as ImageProvider,
-          ),
+       child: CircleAvatar(
+  radius: 20,
+  backgroundImage: (_localImagePath != null)
+      ? (_localImagePath!.startsWith('assets/')
+          // Show asset avatar
+          ? AssetImage(_localImagePath!)
+          // Show local file avatar
+          : FileImage(File(_localImagePath!))) as ImageProvider
+      // Default avatar
+      : const AssetImage('assets/images/avatar.jpg'),
+),
+
         ),
       ],
     );

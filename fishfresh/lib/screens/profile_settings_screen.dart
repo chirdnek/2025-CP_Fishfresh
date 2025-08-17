@@ -10,6 +10,8 @@ import 'package:fishfresh/screens/login.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:fishfresh/services/biometrics_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:fishfresh/screens/termsofuse_screen.dart';
+import 'package:fishfresh/screens/privacypolicy_screen.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -48,8 +50,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      final doc =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
       final data = doc.data();
       setState(() {
@@ -75,8 +79,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-      final snap =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       final data = snap.data();
       setState(() {
         _isBiometricsEnabled = (data?['biometricsEnabled'] ?? false) as bool;
@@ -118,7 +124,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     try {
       if (!_isSupported || _availableTypes.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biometrics not available on this device.')),
+          const SnackBar(
+            content: Text('Biometrics not available on this device.'),
+          ),
         );
         return;
       }
@@ -141,8 +149,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         if (!ok) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text(msg ?? '${_biometricLabel()} authentication failed or canceled.'),
+              content: Text(
+                msg ??
+                    '${_biometricLabel()} authentication failed or canceled.',
+              ),
             ),
           );
           return;
@@ -158,14 +168,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Disable biometrics?'),
-            content: const Text('You will no longer be asked to use biometrics.'),
+            content: const Text(
+              'You will no longer be asked to use biometrics.',
+            ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel')),
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
               TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Disable')),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Disable'),
+              ),
             ],
           ),
         );
@@ -173,9 +187,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
         await _saveBiometricsState(false);
         setState(() => _isBiometricsEnabled = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biometrics disabled.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Biometrics disabled.')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -184,17 +198,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   Future<void> _testBiometrics() async {
     if (!_isBiometricsEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enable biometrics first.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enable biometrics first.')));
       return;
     }
-    final (success, msg) =
-        await _bio.authenticate(allowDeviceCredential: false, reason: 'Authenticate');
+    final (success, msg) = await _bio.authenticate(
+      allowDeviceCredential: false,
+      reason: 'Authenticate',
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            success ? 'Authentication success.' : (msg ?? 'Authentication failed or canceled.')),
+          success
+              ? 'Authentication success.'
+              : (msg ?? 'Authentication failed or canceled.'),
+        ),
       ),
     );
   }
@@ -335,17 +354,25 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundImage: _localImagePath != null
-                    ? FileImage(File(_localImagePath!))
-                    : const AssetImage('assets/images/avatar.jpg') as ImageProvider,
-              ),
+           CircleAvatar(
+  radius: 25,
+  backgroundImage: (_localImagePath != null)
+      ? (_localImagePath!.startsWith('assets/')
+          // Show preset avatar from assets
+          ? AssetImage(_localImagePath!)
+          // Show gallery image from local file
+          : FileImage(File(_localImagePath!))) as ImageProvider
+      // Default fallback avatar
+      : const AssetImage('assets/images/avatar.jpg'),
+),
               Positioned(
                 top: -4,
                 right: -4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
                   decoration: const BoxDecoration(
                     color: Colors.red,
                     shape: BoxShape.circle,
@@ -368,12 +395,17 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundImage: _localImagePath != null
-                ? FileImage(File(_localImagePath!))
-                : const AssetImage('assets/images/avatar.jpg') as ImageProvider,
-          ),
+       CircleAvatar(
+  radius: 25,
+  backgroundImage: (_localImagePath != null)
+      ? (_localImagePath!.startsWith('assets/')
+          // Show preset avatar from assets
+          ? AssetImage(_localImagePath!)
+          // Show gallery image from local file
+          : FileImage(File(_localImagePath!))) as ImageProvider
+      // Default fallback avatar
+      : const AssetImage('assets/images/avatar.jpg'),
+),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
@@ -405,8 +437,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     final sub = !_isSupported || _availableTypes.isEmpty
         ? 'Biometrics not available'
         : _isBiometricsEnabled
-            ? 'Enabled • $biometricsTitle'
-            : 'Use $biometricsTitle to secure the app';
+        ? 'Enabled • $biometricsTitle'
+        : 'Use $biometricsTitle to secure the app';
 
     return Column(
       children: [
@@ -428,7 +460,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           onTap: () async {
             if (!_isSupported || _availableTypes.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Biometrics not available on this device.')),
+                const SnackBar(
+                  content: Text('Biometrics not available on this device.'),
+                ),
               );
               return;
             }
@@ -495,9 +529,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 );
               } catch (e) {
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Logout failed: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
               }
             }
           },
@@ -517,10 +551,29 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             style: TextStyle(color: Colors.grey, fontSize: 16),
           ),
         ),
-        _settingItem(title: 'Terms of Use', hasIcon: false),
+        _settingItem(
+          title: 'Terms of Use',
+          hasIcon: false,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TermsOfUseScreen()),
+            );
+          },
+        ),
+
         _settingItem(title: 'More', hasIcon: false, hasArrow: false),
         _settingItem(title: 'About us', hasIcon: false),
-        _settingItem(title: 'Privacy policy', hasIcon: false),
+        _settingItem(
+          title: 'Privacy Policy',
+          hasIcon: false,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+            );
+          },
+        ),
         _settingItem(
           icon: Icons.delete_forever,
           title: 'Delete Account',
@@ -540,7 +593,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   ),
                   TextButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    child: const Text(
+                      'Delete',
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ),
                 ],
               ),
@@ -552,7 +608,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 final uid = user?.uid;
 
                 if (user != null && uid != null) {
-                  await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .delete();
                   await user.delete();
                   if (!mounted) return;
                   Navigator.of(context).pushAndRemoveUntil(
@@ -587,12 +646,21 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       leading: hasIcon ? Icon(icon, color: Colors.grey[400]) : null,
-      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+      title: Text(
+        title,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+      ),
       subtitle: subtitle != null
-          ? Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 12))
+          ? Text(
+              subtitle,
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            )
           : null,
-      trailing: trailing ??
-          (hasArrow ? Icon(Icons.chevron_right, color: Colors.grey[600]) : null),
+      trailing:
+          trailing ??
+          (hasArrow
+              ? Icon(Icons.chevron_right, color: Colors.grey[600])
+              : null),
     );
   }
 }

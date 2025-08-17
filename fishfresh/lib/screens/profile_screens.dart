@@ -32,15 +32,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _loadProfileData();
   }
+Future<void> _pickAndUploadImage() async {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: const Color(0xFF1C1C1E),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (BuildContext context) {
+      final avatarPaths = [
+        'assets/images/avatar1.png',
+        'assets/images/avatar2.png',
+        'assets/images/avatar3.png',
+        'assets/images/avatar4.png',
+        'assets/images/avatar5.png',
+      ];
 
-  Future<void> _pickAndUploadImage() async {
-    final path = await ImageService.pickAndSaveImageLocally();
-    if (path != null) {
-      setState(() {
-        _localImagePath = path;
-      });
-    }
-  }
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Choose Profile Picture",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Avatar choices
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: avatarPaths.map((path) {
+                return GestureDetector(
+                  onTap: () async {
+                    final user = _auth.currentUser;
+                    if (user != null) {
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(user.uid)
+                          .update({'localImagePath': path});
+                    }
+                    setState(() {
+                      _localImagePath = path;
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: CircleAvatar(
+                    radius: 35,
+                    backgroundImage: AssetImage(path),
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 20),
+            Divider(color: Colors.grey[700]),
+
+            // Choose from gallery
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.white),
+              title: const Text(
+                "Choose from Gallery",
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                final path = await ImageService.pickAndSaveImageLocally();
+                if (path != null) {
+                  final user = _auth.currentUser;
+                  if (user != null) {
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .update({'localImagePath': path});
+                  }
+                  setState(() {
+                    _localImagePath = path;
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 
   Future<void> _loadProfileData() async {
     final user = _auth.currentUser;
@@ -214,13 +297,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Stack(
           alignment: Alignment.bottomRight,
           children: [
-            CircleAvatar(
-              radius: 45,
-              backgroundImage: _localImagePath != null
-                  ? FileImage(File(_localImagePath!))
-                  : const AssetImage('assets/images/avatar.jpg')
-                        as ImageProvider,
-            ),
+         CircleAvatar(
+  radius: 45,
+  backgroundImage: _localImagePath != null
+      ? (_localImagePath!.startsWith('assets/')
+          ? AssetImage(_localImagePath!)
+          : FileImage(File(_localImagePath!))) as ImageProvider
+      : const AssetImage('assets/images/avatar.jpg'),
+),
             Positioned(
               bottom: 0,
               right: 0,

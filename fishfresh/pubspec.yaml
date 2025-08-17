@@ -55,6 +55,9 @@ dependencies:
   google_generative_ai: 0.4.7
   google_sign_in: ^6.2.1
   sign_in_button: ^3.2.0
+  connectivity_plus: ^6.0.2
+  internet_connection_checker_plus: ^2.3.0
+  opencv_4: 1.0.0
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
 
@@ -83,12 +86,20 @@ flutter:
   assets:
     - assets/images/scan.png
     - assets/images/logo.png
+    - assets/images/logo1.png
+    - assets/images/logo0.png
     - assets/images/freshness.png
     - assets/images/market.png
     - assets/images/fish_bg.jpg
     - assets/images/fish_koi.png
     - assets/images/avatar.jpg
     - assets/kb/fishfresh_kb.txt
+    - assets/images/avatar1.png
+    - assets/images/avatar2.png
+    - assets/images/avatar3.png
+    - assets/images/avatar4.png
+    - assets/images/avatar5.png
+    - assets/images/google_logo.png
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

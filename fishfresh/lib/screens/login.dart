@@ -272,7 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Expanded(child: Divider(color: Colors.white24, thickness: 1)),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Official Google button (with logo)
                   SizedBox(

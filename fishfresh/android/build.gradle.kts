@@ -6,7 +6,8 @@ buildscript {
     }
       dependencies {
         classpath("com.android.tools.build:gradle:8.2.1") // Match Flutter version
-        classpath("com.google.gms:google-services:4.4.1") // Firebase plugin
+        classpath("com.google.gms:google-services:4.4.2") 
+        // Firebase plugin
     }
 }
 
