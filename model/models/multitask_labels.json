@@ -1,0 +1,12 @@
+{
+  "freshness_classes": [
+    "borderline",
+    "fresh",
+    "not_fresh"
+  ],
+  "species_classes": [
+    "bigeye_scad",
+    "indian_mackerel",
+    "unknown"
+  ]
+}
