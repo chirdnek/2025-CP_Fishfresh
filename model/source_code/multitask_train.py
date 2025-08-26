@@ -19,7 +19,7 @@ EPOCHS_FINETUNE = 10          # second stage (partial unfreeze)
 # You can run again later with RESUME_TRAINING=True and it’ll keep improving.
 
 # ---------- DATA PIPELINE ----------
-ALLOWED = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+ALLOWED = {".jpg", ".jpegA", ".png", ".bmp", ".webp"}
 
 def discover_species_classes(train_root: Path) -> list[str]:
     species = set()
@@ -97,7 +97,7 @@ def build_model(num_species: int):
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(0.5)(x)
     x = layers.Dense(128, activation="relu",
-                     kernel_regularizer=regularizers.l2(1e-4))(x)
+                    kernel_regularizer=regularizers.l2(1e-4))(x)
     x = layers.Dropout(0.4)(x)
 
     fresh_out   = layers.Dense(len(FRESHNESS_CLASSES), activation="softmax", name="fresh_out")(x)
