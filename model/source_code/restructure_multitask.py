@@ -4,7 +4,7 @@ from shutil import move
 import sys
 
 ALLOWED = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-FRESHNESS = ["borderline", "fresh", "not_fresh"]
+FRESHNESS = ["fresh", "not_fresh"]
 SPLITS = ["train", "validation", "testing"]  # handles your names
 
 def ensure(dirpath: Path):
@@ -43,7 +43,7 @@ def main():
             # (nothing to do; existing species subfolders stay as-is)
 
     print(f"✅ Done. Moved {moved} unlabeled species images into 'unknown/' folders.")
-    print("   Final structure (per split): split/<borderline|fresh|not_fresh>/<species or 'unknown'>/image.jpg")
+    print("   Final structure (per split): split/<fresh|not_fresh>/<species or 'unknown'>/image.jpg")
     print("   If you see 'unknown', the trainer can handle it (species list will include 'unknown').")
 
 if __name__ == "__main__":

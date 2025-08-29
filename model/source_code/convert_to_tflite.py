@@ -2,7 +2,7 @@
 import tensorflow as tf
 from pathlib import Path
 
-MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "mobilenetv2_fishfresh.keras"
+MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "multitask_mobilenetv2.keras"
 TFLITE_PATH = MODEL_PATH.with_suffix(".tflite")
 
 def main():

@@ -8,7 +8,7 @@ import numpy as np
 # ---------- CONFIG ----------
 IMG_SIZE   = (224, 224)
 BATCH_SIZE = 32
-FRESHNESS_CLASSES = ["borderline", "fresh", "not_fresh"]
+FRESHNESS_CLASSES = ["fresh", "not_fresh"]
 SAVE_NAME  = "multitask_mobilenetv2.keras"
 LABELS_JSON= "multitask_labels.json"
 
@@ -19,7 +19,7 @@ EPOCHS_FINETUNE = 10          # second stage (partial unfreeze)
 # You can run again later with RESUME_TRAINING=True and it’ll keep improving.
 
 # ---------- DATA PIPELINE ----------
-ALLOWED = {".jpg", ".jpegA", ".png", ".bmp", ".webp"}
+ALLOWED = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 def discover_species_classes(train_root: Path) -> list[str]:
     species = set()

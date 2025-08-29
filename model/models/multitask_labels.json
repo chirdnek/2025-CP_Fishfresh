@@ -1,6 +1,5 @@
 {
   "freshness_classes": [
-    "borderline",
     "fresh",
     "not_fresh"
   ],
@@ -9,6 +8,7 @@
     "country_maiden",
     "fringescale_sardinella",
     "indian_mackerel",
+    "mackerel_tuna",
     "unknown"
   ]
 }
