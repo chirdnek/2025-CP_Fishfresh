@@ -1,0 +1,11 @@
+class,train,validation
+fresh__bigeye_scad,34,12
+fresh__country_maiden,7,2
+fresh__fringella_sardinella,92,31
+fresh__indian_mackerel,121,38
+fresh__yellowfin_tuna,11,4
+not_fresh__bigeye_scad,13,4
+not_fresh__country_maiden,8,3
+not_fresh__fringescale_sardinella,127,43
+not_fresh__indian_mackerel,67,23
+not_fresh__yellowfin_tuna,9,3
