@@ -5,10 +5,3 @@ model/.venv/
 __pycache__/
 .ipynb_checkpoints/
 *.pyc
-
-# Big/binary artifacts
-model/datasets/
-*.tflite
-*.onnx
-*.pt
-*.h5
