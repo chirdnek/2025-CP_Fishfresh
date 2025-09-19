@@ -3,11 +3,11 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+     maven { url = uri("https://storage.googleapis.com/download.flutter.io") }
     }
       dependencies {
         classpath("com.android.tools.build:gradle:8.2.1") // Match Flutter version
         classpath("com.google.gms:google-services:4.4.2") 
-        // Firebase plugin
     }
 }
 

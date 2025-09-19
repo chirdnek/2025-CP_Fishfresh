@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, avoid_print
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,11 +28,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
     final snap = await docRef.get();
 
-    // Derive names from displayName or email as fallback
     final display = (user.displayName ?? '').trim();
     final parts = display.isEmpty ? <String>[] : display.split(RegExp(r'\s+'));
-    final first = parts.isNotEmpty ? parts.first : (user.email?.split('@').first ?? 'User');
-    final last  = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+    final first = parts.isNotEmpty
+        ? parts.first
+        : (user.email?.split('@').first ?? 'User');
+    final last = parts.length > 1 ? parts.sublist(1).join(' ') : '';
 
     final existing = (snap.data() ?? <String, dynamic>{});
     final patch = <String, dynamic>{};
@@ -80,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // === Email/Password login ===
   Future<void> _login() async {
     final email = emailController.text.trim();
     final password = passwordController.text;
@@ -93,11 +95,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       final u = FirebaseAuth.instance.currentUser;
-      if (u != null) await _ensureUserDoc(u); // <-- ensure names exist
+      if (u != null) await _ensureUserDoc(u);
       _goHome();
     } on FirebaseAuthException catch (e) {
+      print("DEBUG ERROR (Email Login): ${e.code} - ${e.message}");
       String errorMessage;
       switch (e.code) {
         case 'user-not-found':
@@ -114,23 +120,23 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       _showErrorDialog(errorMessage);
     } catch (e) {
-      _showErrorDialog('An unexpected error occurred.');
+      print("DEBUG ERROR (Email Login): $e");
+      _showErrorDialog("Unexpected error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // === Google Sign-In ===
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
     try {
-      // Force the account chooser by disconnecting any cached session.
       final gs = GoogleSignIn();
       try {
-        await gs.disconnect(); // revoke previous consent if any
+        await gs.disconnect();
       } catch (_) {}
-      await gs.signOut(); // sign out cached account
+      await gs.signOut();
 
-      // Trigger chooser
       final GoogleSignInAccount? gUser = await gs.signIn();
       if (gUser == null) return; // user cancelled
 
@@ -140,15 +146,21 @@ class _LoginScreenState extends State<LoginScreen> {
         accessToken: gAuth.accessToken,
       );
 
-      final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCred = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
       final user = userCred.user;
       if (user == null) {
-        throw FirebaseAuthException(code: 'user-null', message: 'No user returned from Google sign-in.');
+        throw FirebaseAuthException(
+          code: 'user-null',
+          message: 'No user returned from Google sign-in.',
+        );
       }
 
-      await _ensureUserDoc(user); // <-- upsert Firestore names
+      await _ensureUserDoc(user);
       _goHome();
     } on FirebaseAuthException catch (e) {
+      print("DEBUG ERROR (Google Login): ${e.code} - ${e.message}");
       String msg;
       switch (e.code) {
         case 'account-exists-with-different-credential':
@@ -165,6 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       _showErrorDialog(msg);
     } catch (e) {
+      print("DEBUG ERROR (Google Login): $e");
       _showErrorDialog('Google sign-in failed. Please try again.');
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
@@ -213,7 +226,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: emailController,
                     hintText: 'Email',
                     icon: Icons.email,
-                    obscureText: false,
                   ),
                   const SizedBox(height: 20),
 
@@ -223,8 +235,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     icon: Icons.lock,
                     obscureText: !passwordVisible,
                     suffixIcon: IconButton(
-                      icon: Icon(passwordVisible ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => passwordVisible = !passwordVisible),
+                      icon: Icon(
+                        passwordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () =>
+                          setState(() => passwordVisible = !passwordVisible),
                     ),
                   ),
 
@@ -232,71 +249,108 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // TODO: password reset
-                      },
-                      child: const Text('Forgot Password?', style: TextStyle(color: Colors.white)),
+                      onPressed: () {},
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
 
-                  // Email/Password login
+                  // === Email login button ===
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: busy ? null : _login,
+                      onPressed: busy
+                          ? null
+                          : () async {
+                              await _login();
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: _isLoading
                           ? const SizedBox(
-                              width: 24, height: 24,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             )
-                          : const Text('Login', style: TextStyle(fontSize: 18, color: Colors.white)),
+                          : const Text(
+                              'Login',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
 
                   const SizedBox(height: 16),
-
-                  // OR separator
                   Row(
                     children: const [
-                      Expanded(child: Divider(color: Colors.white24, thickness: 1)),
+                      Expanded(
+                        child: Divider(color: Colors.white24, thickness: 1),
+                      ),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('OR', style: TextStyle(color: Colors.white70)),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(color: Colors.white70),
+                        ),
                       ),
-                      Expanded(child: Divider(color: Colors.white24, thickness: 1)),
+                      Expanded(
+                        child: Divider(color: Colors.white24, thickness: 1),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
 
-                  // Official Google button (with logo)
+                  // === Google login button ===
                   SizedBox(
                     width: double.infinity,
-                    child:SignInButton(
-  Buttons.google,
-  text: _isGoogleLoading ? 'Signing in…' : 'Continue with Google',
-  onPressed: () async {
-    if (_isLoading || _isGoogleLoading) return; // guard instead of null
-    await _signInWithGoogle();
-  },
-)
+                    child: SignInButton(
+                      Buttons.google,
+                      text: _isGoogleLoading
+                          ? 'Signing in…'
+                          : 'Continue with Google',
+                      onPressed: busy
+                          ? () {}
+                          : () async {
+                              await _signInWithGoogle();
+                            },
+                    ),
                   ),
 
                   const SizedBox(height: 20),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an account? ", style: TextStyle(color: Colors.white70)),
+                      const Text(
+                        "Don't have an account? ",
+                        style: TextStyle(color: Colors.white70),
+                      ),
                       GestureDetector(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
-                        child: const Text('Sign Up here',
-                            style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold)),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SignUpScreen(),
+                          ),
+                        ),
+                        child: const Text(
+                          'Sign Up here',
+                          style: TextStyle(
+                            color: Colors.lightBlueAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),

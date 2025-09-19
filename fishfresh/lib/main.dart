@@ -1,4 +1,6 @@
-// ignore_for_file: unused_import, avoid_print, use_build_context_synchronously
+
+
+// ignore_for_file: avoid_print, unused_import
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,9 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fishfresh/screens/splash_screen.dart';
 import 'screens/home.dart';
 import 'screens/login.dart';
-import 'screens/loading_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
-
 import 'services/push_notification_service.dart';
 import 'services/storage_service.dart';
 
@@ -145,6 +145,7 @@ class _InitialScreenState extends State<InitialScreen> {
     return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
+
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});

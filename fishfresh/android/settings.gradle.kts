@@ -13,6 +13,7 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven { url = uri("https://storage.googleapis.com/download.flutter.io") } // ✅ Add JitPack for PyTorch
     }
 }
 
@@ -20,6 +21,15 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.7.3" apply false
     id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+    maven { url = uri("https://storage.googleapis.com/download.flutter.io") }// ✅ Add JitPack here too
+    }
 }
 
 include(":app")
