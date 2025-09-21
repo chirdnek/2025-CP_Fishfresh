@@ -1,0 +1,7 @@
+{
+  "freshness_classes": ["Fresh", "Not Fresh"],
+  "species_classes": [
+    "fringella_sardinella",
+    "indian_mackerel"
+  ]
+}

@@ -113,6 +113,8 @@ flutter:
     - assets/images/google_logo.png
     - assets/model/multitask_labels.json
     - assets/model/mobilenetv2_dli14_Sept_13_10-20_am_float16.tflite
+    - assets/model/mobilenetv2_dli14_Sept_21_4-47_am_float16.tflite
+    - assets/model/classes.json
   
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

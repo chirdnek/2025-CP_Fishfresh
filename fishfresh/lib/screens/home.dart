@@ -75,6 +75,35 @@ class _HomePageState extends State<HomePage> {
     await _loadGalleryImages();
   }
 
+Future<void> _runPrediction(String imagePath) async {
+  try {
+    if (!_modelReady) {
+      await _fishModel.init();
+      _modelReady = true;
+    }
+
+    final pred = await _fishModel.predict(imagePath);
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FishResultScreen(
+          imagePath: imagePath,
+          species: pred["predicted_species"] as String,
+          freshnessLabel: pred["predicted_freshness"] as String,
+        ),
+      ),
+    );
+  } catch (e) {
+    debugPrint("❌ Prediction error: $e");
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Prediction failed: $e")),
+    );
+  }
+}
   @override
   void initState() {
     super.initState();
@@ -257,7 +286,7 @@ Future<void> _scanFish() async {
         "userId": user.uid,
       });
     }
-
+debugPrint("➡️ Navigating to FishResultScreen with $frontPath");
     // ✅ Navigate to FishResultScreen
     Navigator.push(
       context,
@@ -397,53 +426,62 @@ Future<void> _scanFish() async {
                     Scrollbar(
                       thumbVisibility: true,
                       controller: _scrollController,
-                      child: GridView.builder(
-                        controller: _scrollController,
-                        itemCount: _galleryImages.length + 1,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                              childAspectRatio: 1,
-                            ),
-                        itemBuilder: (context, index) {
-                          if (index == 0) {
-                            return GestureDetector(
-                              onTap: () async {
-                                final picker = ImagePicker();
-                                await picker.pickImage(
-                                  source: ImageSource.gallery,
-                                );
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[800],
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.photo_library,
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
-                              ),
-                            );
-                          }
+                      child:GridView.builder(
+  controller: _scrollController,
+  itemCount: _galleryImages.length + 1,
+  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 3,
+    crossAxisSpacing: 10,
+    mainAxisSpacing: 10,
+    childAspectRatio: 1,
+  ),
+  itemBuilder: (context, index) {
+    if (index == 0) {
+      return GestureDetector(
+        onTap: () async {
+          final picker = ImagePicker();
+          final picked = await picker.pickImage(source: ImageSource.gallery);
+          if (picked != null) {
+            await _runPrediction(picked.path); // ✅ run model here
+          }
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[800],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.photo_library,
+              color: Colors.white, size: 40),
+        ),
+      );
+    }
 
-                          final asset = _galleryImages[index - 1];
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image(
-                              image: AssetEntityImageProvider(
-                                asset,
-                                isOriginal: false,
-                                thumbnailSize: const ThumbnailSize.square(200),
-                              ),
-                              fit: BoxFit.cover,
-                            ),
-                          );
-                        },
-                      ),
+    final asset = _galleryImages[index - 1];
+    return FutureBuilder<File?>(
+      future: asset.file,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[800],
+              borderRadius: BorderRadius.circular(12),
+            ),
+          );
+        }
+        final file = snapshot.data!;
+        return GestureDetector(
+          onTap: () async {
+            await _runPrediction(file.path); // ✅ run model when tapped
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(file, fit: BoxFit.cover),
+          ),
+        );
+      },
+    );
+  },
+),
                     ),
                     if (_showDateLabel && _currentDateLabel != null)
                       Positioned(

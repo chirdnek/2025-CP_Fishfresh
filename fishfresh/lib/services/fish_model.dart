@@ -21,14 +21,14 @@ class FishModel {
 
     // Load label JSON
     final jsonStr =
-        await rootBundle.loadString('assets/model/multitask_labels.json');
+        await rootBundle.loadString('assets/model/classes.json');
     final data = json.decode(jsonStr) as Map<String, dynamic>;
     freshnessLabels = List<String>.from(data['freshness_classes']);
     speciesLabels = List<String>.from(data['species_classes']);
 
     // Load TFLite model
     _interpreter = await Interpreter.fromAsset(
-      'assets/model/mobilenetv2_dli14_Sept_13_10-20_am_float16.tflite',
+      'assets/model/mobilenetv2_dli14_Sept_21_4-47_am_float16.tflite',
     );
 
     _initialized = true;
