@@ -1,0 +1,215 @@
+===== ONNX - converter ===== 
+[Sun 09/21/2025  4:59:25.38] Starting 
+Checking folders...
+Python 3.10.11
+Creating venv at "C:\aziztebbeng\2025-CP_Fishfresh\model\.tfliteenv"...
+Upgrading pip...
+Requirement already satisfied: pip in c:\aziztebbeng\2025-cp_fishfresh\model\.tfliteenv\lib\site-packages (23.0.1)
+Collecting pip
+  Using cached pip-25.2-py3-none-any.whl (1.8 MB)
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 23.0.1
+    Uninstalling pip-23.0.1:
+      Successfully uninstalled pip-23.0.1
+Successfully installed pip-25.2
+Installing/refreshing dependencies...
+Collecting tensorflow-cpu==2.15.1
+  Downloading tensorflow_cpu-2.15.1-cp310-cp310-win_amd64.whl.metadata (3.4 kB)
+Collecting onnx2tf==1.27.0
+  Downloading onnx2tf-1.27.0-py3-none-any.whl.metadata (147 kB)
+Collecting onnx==1.16.1
+  Downloading onnx-1.16.1-cp310-cp310-win_amd64.whl.metadata (16 kB)
+Collecting ml-dtypes==0.3.1
+  Downloading ml_dtypes-0.3.1-cp310-cp310-win_amd64.whl.metadata (20 kB)
+Collecting onnxruntime==1.18.0
+  Downloading onnxruntime-1.18.0-cp310-cp310-win_amd64.whl.metadata (4.4 kB)
+Collecting onnx-graphsurgeon==0.5.8
+  Downloading onnx_graphsurgeon-0.5.8-py2.py3-none-any.whl.metadata (8.2 kB)
+Collecting sng4onnx
+  Downloading sng4onnx-1.0.4-py3-none-any.whl.metadata (4.6 kB)
+Collecting psutil
+  Downloading psutil-7.1.0-cp37-abi3-win_amd64.whl.metadata (23 kB)
+Collecting tf-keras==2.15.1
+  Downloading tf_keras-2.15.1-py3-none-any.whl.metadata (1.7 kB)
+Collecting tensorflow-intel==2.15.1 (from tensorflow-cpu==2.15.1)
+  Downloading tensorflow_intel-2.15.1-cp310-cp310-win_amd64.whl.metadata (4.9 kB)
+Collecting numpy>=1.20 (from onnx==1.16.1)
+  Downloading numpy-2.2.6-cp310-cp310-win_amd64.whl.metadata (60 kB)
+Collecting protobuf>=3.20.2 (from onnx==1.16.1)
+  Downloading protobuf-6.32.1-cp310-abi3-win_amd64.whl.metadata (593 bytes)
+Collecting coloredlogs (from onnxruntime==1.18.0)
+  Downloading coloredlogs-15.0.1-py2.py3-none-any.whl.metadata (12 kB)
+Collecting flatbuffers (from onnxruntime==1.18.0)
+  Downloading flatbuffers-25.2.10-py2.py3-none-any.whl.metadata (875 bytes)
+Collecting packaging (from onnxruntime==1.18.0)
+  Downloading packaging-25.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting sympy (from onnxruntime==1.18.0)
+  Downloading sympy-1.14.0-py3-none-any.whl.metadata (12 kB)
+Collecting tensorflow<2.16,>=2.15 (from tf-keras==2.15.1)
+  Downloading tensorflow-2.15.1-cp310-cp310-win_amd64.whl.metadata (3.4 kB)
+Collecting absl-py>=1.0.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading absl_py-2.3.1-py3-none-any.whl.metadata (3.3 kB)
+Collecting astunparse>=1.6.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading astunparse-1.6.3-py2.py3-none-any.whl.metadata (4.4 kB)
+Collecting gast!=0.5.0,!=0.5.1,!=0.5.2,>=0.2.1 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading gast-0.6.0-py3-none-any.whl.metadata (1.3 kB)
+Collecting google-pasta>=0.1.1 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading google_pasta-0.2.0-py3-none-any.whl.metadata (814 bytes)
+Collecting h5py>=2.9.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading h5py-3.14.0-cp310-cp310-win_amd64.whl.metadata (2.7 kB)
+Collecting libclang>=13.0.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading libclang-18.1.1-py2.py3-none-win_amd64.whl.metadata (5.3 kB)
+Collecting numpy>=1.20 (from onnx==1.16.1)
+  Downloading numpy-1.26.4-cp310-cp310-win_amd64.whl.metadata (61 kB)
+Collecting opt-einsum>=2.3.2 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading opt_einsum-3.4.0-py3-none-any.whl.metadata (6.3 kB)
+Collecting protobuf>=3.20.2 (from onnx==1.16.1)
+  Downloading protobuf-4.25.8-cp310-abi3-win_amd64.whl.metadata (541 bytes)
+Requirement already satisfied: setuptools in c:\aziztebbeng\2025-cp_fishfresh\model\.tfliteenv\lib\site-packages (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1) (65.5.0)
+Collecting six>=1.12.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting termcolor>=1.1.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading termcolor-3.1.0-py3-none-any.whl.metadata (6.4 kB)
+Collecting typing-extensions>=3.6.6 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting wrapt<1.15,>=1.11.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading wrapt-1.14.2-cp310-cp310-win_amd64.whl.metadata (6.6 kB)
+Collecting tensorflow-io-gcs-filesystem>=0.23.1 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading tensorflow_io_gcs_filesystem-0.31.0-cp310-cp310-win_amd64.whl.metadata (14 kB)
+Collecting grpcio<2.0,>=1.24.3 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading grpcio-1.75.0-cp310-cp310-win_amd64.whl.metadata (3.8 kB)
+Collecting tensorboard<2.16,>=2.15 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading tensorboard-2.15.2-py3-none-any.whl.metadata (1.7 kB)
+Collecting tensorflow-estimator<2.16,>=2.15.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading tensorflow_estimator-2.15.0-py2.py3-none-any.whl.metadata (1.3 kB)
+Collecting keras<2.16,>=2.15.0 (from tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading keras-2.15.0-py3-none-any.whl.metadata (2.4 kB)
+Collecting google-auth<3,>=1.6.3 (from tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading google_auth-2.40.3-py2.py3-none-any.whl.metadata (6.2 kB)
+Collecting google-auth-oauthlib<2,>=0.5 (from tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading google_auth_oauthlib-1.2.2-py3-none-any.whl.metadata (2.7 kB)
+Collecting markdown>=2.6.8 (from tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading markdown-3.9-py3-none-any.whl.metadata (5.1 kB)
+Collecting requests<3,>=2.21.0 (from tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+Collecting tensorboard-data-server<0.8.0,>=0.7.0 (from tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading tensorboard_data_server-0.7.2-py3-none-any.whl.metadata (1.1 kB)
+Collecting werkzeug>=1.0.1 (from tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading werkzeug-3.1.3-py3-none-any.whl.metadata (3.7 kB)
+Collecting cachetools<6.0,>=2.0.0 (from google-auth<3,>=1.6.3->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading cachetools-5.5.2-py3-none-any.whl.metadata (5.4 kB)
+Collecting pyasn1-modules>=0.2.1 (from google-auth<3,>=1.6.3->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+Collecting rsa<5,>=3.1.4 (from google-auth<3,>=1.6.3->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading rsa-4.9.1-py3-none-any.whl.metadata (5.6 kB)
+Collecting requests-oauthlib>=0.7.0 (from google-auth-oauthlib<2,>=0.5->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl.metadata (11 kB)
+Collecting charset_normalizer<4,>=2 (from requests<3,>=2.21.0->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading charset_normalizer-3.4.3-cp310-cp310-win_amd64.whl.metadata (37 kB)
+Collecting idna<4,>=2.5 (from requests<3,>=2.21.0->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading idna-3.10-py3-none-any.whl.metadata (10 kB)
+Collecting urllib3<3,>=1.21.1 (from requests<3,>=2.21.0->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading urllib3-2.5.0-py3-none-any.whl.metadata (6.5 kB)
+Collecting certifi>=2017.4.17 (from requests<3,>=2.21.0->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading certifi-2025.8.3-py3-none-any.whl.metadata (2.4 kB)
+Collecting pyasn1>=0.1.3 (from rsa<5,>=3.1.4->google-auth<3,>=1.6.3->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading pyasn1-0.6.1-py3-none-any.whl.metadata (8.4 kB)
+Collecting wheel<1.0,>=0.23.0 (from astunparse>=1.6.0->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading wheel-0.45.1-py3-none-any.whl.metadata (2.3 kB)
+Collecting oauthlib>=3.0.0 (from requests-oauthlib>=0.7.0->google-auth-oauthlib<2,>=0.5->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading oauthlib-3.3.1-py3-none-any.whl.metadata (7.9 kB)
+Collecting MarkupSafe>=2.1.1 (from werkzeug>=1.0.1->tensorboard<2.16,>=2.15->tensorflow-intel==2.15.1->tensorflow-cpu==2.15.1)
+  Downloading MarkupSafe-3.0.2-cp310-cp310-win_amd64.whl.metadata (4.1 kB)
+Collecting humanfriendly>=9.1 (from coloredlogs->onnxruntime==1.18.0)
+  Downloading humanfriendly-10.0-py2.py3-none-any.whl.metadata (9.2 kB)
+Collecting pyreadline3 (from humanfriendly>=9.1->coloredlogs->onnxruntime==1.18.0)
+  Downloading pyreadline3-3.5.4-py3-none-any.whl.metadata (4.7 kB)
+Collecting mpmath<1.4,>=1.1.0 (from sympy->onnxruntime==1.18.0)
+  Downloading mpmath-1.3.0-py3-none-any.whl.metadata (8.6 kB)
+Downloading tensorflow_cpu-2.15.1-cp310-cp310-win_amd64.whl (2.1 kB)
+Downloading onnx2tf-1.27.0-py3-none-any.whl (446 kB)
+Downloading onnx-1.16.1-cp310-cp310-win_amd64.whl (14.4 MB)
+   ---------------------------------------- 14.4/14.4 MB 4.7 MB/s  0:00:02
+Downloading ml_dtypes-0.3.1-cp310-cp310-win_amd64.whl (126 kB)
+Downloading onnxruntime-1.18.0-cp310-cp310-win_amd64.whl (5.6 MB)
+   ---------------------------------------- 5.6/5.6 MB 3.6 MB/s  0:00:01
+Downloading onnx_graphsurgeon-0.5.8-py2.py3-none-any.whl (57 kB)
+Downloading tf_keras-2.15.1-py3-none-any.whl (1.7 MB)
+   ---------------------------------------- 1.7/1.7 MB 31.6 MB/s  0:00:00
+Downloading tensorflow_intel-2.15.1-cp310-cp310-win_amd64.whl (300.9 MB)
+   ---------------------------------------- 300.9/300.9 MB 6.3 MB/s  0:00:46
+Downloading grpcio-1.75.0-cp310-cp310-win_amd64.whl (4.6 MB)
+   ---------------------------------------- 4.6/4.6 MB 7.0 MB/s  0:00:00
+Downloading keras-2.15.0-py3-none-any.whl (1.7 MB)
+   ---------------------------------------- 1.7/1.7 MB 6.2 MB/s  0:00:00
+Downloading numpy-1.26.4-cp310-cp310-win_amd64.whl (15.8 MB)
+   ---------------------------------------- 15.8/15.8 MB 5.3 MB/s  0:00:02
+Downloading protobuf-4.25.8-cp310-abi3-win_amd64.whl (413 kB)
+Downloading tensorboard-2.15.2-py3-none-any.whl (5.5 MB)
+   ---------------------------------------- 5.5/5.5 MB 5.1 MB/s  0:00:01
+Downloading google_auth-2.40.3-py2.py3-none-any.whl (216 kB)
+Downloading cachetools-5.5.2-py3-none-any.whl (10 kB)
+Downloading google_auth_oauthlib-1.2.2-py3-none-any.whl (19 kB)
+Downloading requests-2.32.5-py3-none-any.whl (64 kB)
+Downloading charset_normalizer-3.4.3-cp310-cp310-win_amd64.whl (107 kB)
+Downloading idna-3.10-py3-none-any.whl (70 kB)
+Downloading rsa-4.9.1-py3-none-any.whl (34 kB)
+Downloading tensorboard_data_server-0.7.2-py3-none-any.whl (2.4 kB)
+Downloading tensorflow-2.15.1-cp310-cp310-win_amd64.whl (2.1 kB)
+Downloading tensorflow_estimator-2.15.0-py2.py3-none-any.whl (441 kB)
+Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+Downloading urllib3-2.5.0-py3-none-any.whl (129 kB)
+Downloading wrapt-1.14.2-cp310-cp310-win_amd64.whl (35 kB)
+Downloading sng4onnx-1.0.4-py3-none-any.whl (5.9 kB)
+Downloading psutil-7.1.0-cp37-abi3-win_amd64.whl (247 kB)
+Downloading absl_py-2.3.1-py3-none-any.whl (135 kB)
+Downloading astunparse-1.6.3-py2.py3-none-any.whl (12 kB)
+Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+Downloading wheel-0.45.1-py3-none-any.whl (72 kB)
+Downloading certifi-2025.8.3-py3-none-any.whl (161 kB)
+Downloading flatbuffers-25.2.10-py2.py3-none-any.whl (30 kB)
+Downloading gast-0.6.0-py3-none-any.whl (21 kB)
+Downloading google_pasta-0.2.0-py3-none-any.whl (57 kB)
+Downloading h5py-3.14.0-cp310-cp310-win_amd64.whl (2.9 MB)
+   ---------------------------------------- 2.9/2.9 MB 6.0 MB/s  0:00:00
+Downloading libclang-18.1.1-py2.py3-none-win_amd64.whl (26.4 MB)
+   ---------------------------------------- 26.4/26.4 MB 6.7 MB/s  0:00:03
+Downloading markdown-3.9-py3-none-any.whl (107 kB)
+Downloading opt_einsum-3.4.0-py3-none-any.whl (71 kB)
+Downloading pyasn1-0.6.1-py3-none-any.whl (83 kB)
+Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl (24 kB)
+Downloading oauthlib-3.3.1-py3-none-any.whl (160 kB)
+Downloading tensorflow_io_gcs_filesystem-0.31.0-cp310-cp310-win_amd64.whl (1.5 MB)
+   ---------------------------------------- 1.5/1.5 MB 5.6 MB/s  0:00:00
+Downloading termcolor-3.1.0-py3-none-any.whl (7.7 kB)
+Downloading werkzeug-3.1.3-py3-none-any.whl (224 kB)
+Downloading MarkupSafe-3.0.2-cp310-cp310-win_amd64.whl (15 kB)
+Downloading coloredlogs-15.0.1-py2.py3-none-any.whl (46 kB)
+Downloading humanfriendly-10.0-py2.py3-none-any.whl (86 kB)
+Downloading packaging-25.0-py3-none-any.whl (66 kB)
+Downloading pyreadline3-3.5.4-py3-none-any.whl (83 kB)
+Downloading sympy-1.14.0-py3-none-any.whl (6.3 MB)
+   ---------------------------------------- 6.3/6.3 MB 6.1 MB/s  0:00:01
+Downloading mpmath-1.3.0-py3-none-any.whl (536 kB)
+   ---------------------------------------- 536.2/536.2 kB 8.8 MB/s  0:00:00
+Installing collected packages: mpmath, libclang, flatbuffers, wrapt, wheel, urllib3, typing-extensions, termcolor, tensorflow-io-gcs-filesystem, tensorflow-estimator, tensorboard-data-server, sympy, sng4onnx, six, pyreadline3, pyasn1, psutil, protobuf, packaging, opt-einsum, onnx2tf, oauthlib, numpy, MarkupSafe, markdown, keras, idna, gast, charset_normalizer, certifi, cachetools, absl-py, werkzeug, rsa, requests, pyasn1-modules, onnx, ml-dtypes, humanfriendly, h5py, grpcio, google-pasta, astunparse, requests-oauthlib, onnx-graphsurgeon, google-auth, coloredlogs, onnxruntime, google-auth-oauthlib, tensorboard, tensorflow-intel, tensorflow-cpu, tensorflow, tf-keras
+
+Successfully installed MarkupSafe-3.0.2 absl-py-2.3.1 astunparse-1.6.3 cachetools-5.5.2 certifi-2025.8.3 charset_normalizer-3.4.3 coloredlogs-15.0.1 flatbuffers-25.2.10 gast-0.6.0 google-auth-2.40.3 google-auth-oauthlib-1.2.2 google-pasta-0.2.0 grpcio-1.75.0 h5py-3.14.0 humanfriendly-10.0 idna-3.10 keras-2.15.0 libclang-18.1.1 markdown-3.9 ml-dtypes-0.3.1 mpmath-1.3.0 numpy-1.26.4 oauthlib-3.3.1 onnx-1.16.1 onnx-graphsurgeon-0.5.8 onnx2tf-1.27.0 onnxruntime-1.18.0 opt-einsum-3.4.0 packaging-25.0 protobuf-4.25.8 psutil-7.1.0 pyasn1-0.6.1 pyasn1-modules-0.4.2 pyreadline3-3.5.4 requests-2.32.5 requests-oauthlib-2.0.0 rsa-4.9.1 six-1.17.0 sng4onnx-1.0.4 sympy-1.14.0 tensorboard-2.15.2 tensorboard-data-server-0.7.2 tensorflow-2.15.1 tensorflow-cpu-2.15.1 tensorflow-estimator-2.15.0 tensorflow-intel-2.15.1 tensorflow-io-gcs-filesystem-0.31.0 termcolor-3.1.0 tf-keras-2.15.1 typing-extensions-4.15.0 urllib3-2.5.0 werkzeug-3.1.3 wheel-0.45.1 wrapt-1.14.2
+Stubbing ai_edge_litert...
+Python 3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)] on win32
+Type "help", "copyright", "credits" or "license" for more information.
+>>> 
+KeyboardInterrupt
+>>> Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'sd' is not defined. Did you mean: 'id'?
+>>> Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'sd' is not defined. Did you mean: 'id'?
+>>> >>> Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'd' is not defined. Did you mean: 'id'?
+>>> >>> Type help() for interactive help, or help(object) for help about object.
+>>> 
