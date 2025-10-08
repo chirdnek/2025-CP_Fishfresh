@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // <-- add this
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/network_monitor.dart';
 import '../main.dart'
-    show rootScaffoldMessengerKey, flutterLocalNotificationsPlugin, networkChannel; // <-- use networkChannel
+    show rootScaffoldMessengerKey, flutterLocalNotificationsPlugin, networkChannel;
 
 class NetworkStatusListener extends StatefulWidget {
   final Widget child;
@@ -14,9 +14,8 @@ class NetworkStatusListener extends StatefulWidget {
 }
 
 class _NetworkStatusListenerState extends State<NetworkStatusListener>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   StreamSubscription? _sub;
-  bool _bannerShown = false;
   AppLifecycleState _lifecycle = AppLifecycleState.resumed;
 
   @override
@@ -26,11 +25,18 @@ class _NetworkStatusListenerState extends State<NetworkStatusListener>
 
     _sub = NetworkMonitor.instance.stream.listen((status) {
       if (status == NetworkStatus.disconnected) {
-        _showOfflineBanner();
-        _maybeNotify(); // alarm-like notification if app not foreground
+        _showToast(
+          message: '⚠️ No internet connection',
+          color: Colors.orange.shade700,
+          duration: const Duration(seconds: 3),
+        );
+        _maybeNotify();
       } else {
-        _hideBanner();
-        _notifyRestored();
+        _showToast(
+          message: '✅ Back online',
+          color: Colors.green.shade600,
+          duration: const Duration(seconds: 2),
+        );
       }
     });
   }
@@ -47,43 +53,71 @@ class _NetworkStatusListenerState extends State<NetworkStatusListener>
     _lifecycle = state;
   }
 
-  void _showOfflineBanner() {
-    if (_bannerShown) return;
-    _bannerShown = true;
-    rootScaffoldMessengerKey.currentState?.showMaterialBanner(
-      MaterialBanner(
-        backgroundColor: Colors.red.shade700,
-        content: const Text(
-          'No internet connection. Some features may not work.',
-          style: TextStyle(color: Colors.white),
+  /// Show a sliding toast from the top
+  void _showToast({
+    required String message,
+    required Color color,
+    Duration duration = const Duration(seconds: 2),
+  }) {
+    final overlay = Overlay.of(rootScaffoldMessengerKey.currentContext!);
+    late OverlayEntry entry;
+    late AnimationController controller;
+
+    controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+      reverseDuration: const Duration(milliseconds: 200),
+    );
+
+    final animation = Tween<Offset>(
+      begin: const Offset(0, -1), // offscreen
+      end: Offset.zero,           // slide into view
+    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOut));
+
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 10,
+        left: 16,
+        right: 16,
+        child: SlideTransition(
+          position: animation,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
         ),
-        leading: const Icon(Icons.wifi_off, color: Colors.white),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              // Manually re-check:
-              _hideBanner();
-              _showOfflineBanner();
-            },
-            child: const Text('RETRY', style: TextStyle(color: Colors.white)),
-          ),
-          TextButton(
-            onPressed: _hideBanner,
-            child: const Text('DISMISS', style: TextStyle(color: Colors.white70)),
-          ),
-        ],
       ),
     );
+
+    overlay.insert(entry);
+    controller.forward();
+
+    Future.delayed(duration, () async {
+      await controller.reverse();
+      entry.remove();
+      controller.dispose();
+    });
   }
 
-  void _hideBanner() {
-    if (!_bannerShown) return;
-    _bannerShown = false;
-    rootScaffoldMessengerKey.currentState?.clearMaterialBanners();
-  }
-
+  /// Notify only when offline (and app is backgrounded)
   Future<void> _maybeNotify() async {
-    // Only “alarm” if not foreground
     if (_lifecycle != AppLifecycleState.resumed) {
       await flutterLocalNotificationsPlugin.show(
         9001,
@@ -91,7 +125,7 @@ class _NetworkStatusListenerState extends State<NetworkStatusListener>
         'FishFresh lost internet connection.',
         NotificationDetails(
           android: AndroidNotificationDetails(
-            networkChannel.id,          // <-- use public channel
+            networkChannel.id,
             networkChannel.name,
             channelDescription: networkChannel.description,
             importance: Importance.high,
@@ -106,30 +140,6 @@ class _NetworkStatusListenerState extends State<NetworkStatusListener>
         ),
       );
     }
-  }
-
-  Future<void> _notifyRestored() async {
-    // Optional: notify once internet is back (no sound)
-    await flutterLocalNotificationsPlugin.show(
-      9002,
-      'Back online',
-      'Internet connection restored.',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          networkChannel.id,
-          networkChannel.name,
-          channelDescription: networkChannel.description,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          playSound: false,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentSound: false,
-        ),
-      ),
-    );
   }
 
   @override

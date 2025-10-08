@@ -23,6 +23,7 @@ import 'package:fishfresh/screens/fish_result_screen.dart';
 import '../services/fish_model.dart';
 import 'fish_scan_camera.dart';
 import 'package:fishfresh/screens/history.dart';
+import 'almanac_screen.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -75,35 +76,36 @@ class _HomePageState extends State<HomePage> {
     await _loadGalleryImages();
   }
 
-Future<void> _runPrediction(String imagePath) async {
-  try {
-    if (!_modelReady) {
-      await _fishModel.init();
-      _modelReady = true;
-    }
+  Future<void> _runPrediction(String imagePath) async {
+    try {
+      if (!_modelReady) {
+        await _fishModel.init();
+        _modelReady = true;
+      }
 
-    final pred = await _fishModel.predict(imagePath);
+      final pred = await _fishModel.predict(imagePath);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FishResultScreen(
-          imagePath: imagePath,
-          species: pred["predicted_species"] as String,
-          freshnessLabel: pred["predicted_freshness"] as String,
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FishResultScreen(
+            imagePath: imagePath,
+            species: pred["predicted_species"] as String,
+            freshnessLabel: pred["predicted_freshness"] as String,
+          ),
         ),
-      ),
-    );
-  } catch (e) {
-    debugPrint("❌ Prediction error: $e");
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Prediction failed: $e")),
-    );
+      );
+    } catch (e) {
+      debugPrint("❌ Prediction error: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
+    }
   }
-}
+
   @override
   void initState() {
     super.initState();
@@ -226,129 +228,139 @@ Future<void> _runPrediction(String imagePath) async {
     }
   }
 
-
-
-
-Future<void> _scanFish() async {
-  try {
-    _cachedCameras ??= await availableCameras();
-    if (_cachedCameras == null || _cachedCameras!.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No cameras available')),
-        );
-      }
-      return;
-    }
-
-    // Capture front + back images
-    final result = await Navigator.push<Map<String, String?>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FishScanCamera(cameras: _cachedCameras!),
-      ),
-    );
-
-    if (result == null || result['front'] == null || result['back'] == null) {
-      return;
-    }
-
-    final frontPath = result['front']!;
-    final backPath = result['back']!;
-
-    // Init model if needed
-    if (!_modelReady) {
-      await _fishModel.init();
-      _modelReady = true;
-    }
-
-    // Run prediction
-    final pred = await _fishModel.predictPair(frontPath, backPath);
-
-    if (!mounted) return;
-
-    // ✅ Save to Firestore under current user
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final docRef = FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .collection("scanHistory")
-          .doc(); // auto ID
-
-      await docRef.set({
-        "fishId": docRef.id,
-        "species": pred["predicted_species"],
-        "freshness": pred["predicted_freshness"],
-        "timestamp": FieldValue.serverTimestamp(), // ✅ proper Timestamp
-        "frontImagePath": frontPath, // local-only
-        "backImagePath": backPath,   // local-only
-        "userId": user.uid,
-      });
-    }
-debugPrint("➡️ Navigating to FishResultScreen with $frontPath");
-    // ✅ Navigate to FishResultScreen
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FishResultScreen(
-          imagePath: frontPath,
-          species: pred["predicted_species"] as String,
-          freshnessLabel: pred["predicted_freshness"] as String,
-        ),
-      ),
-    );
-  } catch (e) {
-    debugPrint("❌ Scan error: $e");
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Scan failed: $e')),
-    );
-  }
-}
-
-
-
-
-  Widget _buildTopBar() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.help_outline, color: Colors.white),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const FAQScreen()),
-            );
-          },
-        ),
-        GestureDetector(
-          onTap: () => Navigator.push(
+  Future<void> _scanFish() async {
+    try {
+      _cachedCameras ??= await availableCameras();
+      if (_cachedCameras == null || _cachedCameras!.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(
             context,
-            MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
-          ),
-          child: CircleAvatar(
-            radius: 20,
-            backgroundImage: (_localImagePath != null)
-                ? (_localImagePath!.startsWith('assets/')
-                          ? AssetImage(_localImagePath!)
-                          : FileImage(File(_localImagePath!)))
-                      as ImageProvider
-                : const AssetImage('assets/images/avatar.jpg'),
+          ).showSnackBar(const SnackBar(content: Text('No cameras available')));
+        }
+        return;
+      }
+
+      // Capture front + back images
+      final result = await Navigator.push<Map<String, String?>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FishScanCamera(cameras: _cachedCameras!),
+        ),
+      );
+
+      if (result == null || result['front'] == null || result['back'] == null) {
+        return;
+      }
+
+      final frontPath = result['front']!;
+      final backPath = result['back']!;
+
+      // Init model if needed
+      if (!_modelReady) {
+        await _fishModel.init();
+        _modelReady = true;
+      }
+
+      // Run prediction
+      final pred = await _fishModel.predictPair(frontPath, backPath);
+
+      if (!mounted) return;
+
+      // ✅ Save to Firestore under current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final docRef = FirebaseFirestore.instance
+            .collection("users")
+            .doc(user.uid)
+            .collection("scanHistory")
+            .doc(); // auto ID
+
+        await docRef.set({
+          "fishId": docRef.id,
+          "species": pred["predicted_species"],
+          "freshness": pred["predicted_freshness"],
+          "timestamp": FieldValue.serverTimestamp(), // ✅ proper Timestamp
+          "frontImagePath": frontPath, // local-only
+          "backImagePath": backPath, // local-only
+          "userId": user.uid,
+        });
+      }
+      debugPrint("➡️ Navigating to FishResultScreen with $frontPath");
+      // ✅ Navigate to FishResultScreen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FishResultScreen(
+            imagePath: frontPath,
+            species: pred["predicted_species"] as String,
+            freshnessLabel: pred["predicted_freshness"] as String,
           ),
         ),
-      ],
-    );
+      );
+    } catch (e) {
+      debugPrint("❌ Scan error: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Scan failed: $e')));
+    }
   }
+Widget _buildTopBar() {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Row(
+        children: [
+          // FAQ button
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FAQScreen()),
+              );
+            },
+          ),
 
+          // Almanac logo button
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => FishAlmanacPage()), // 👈 your almanac screen
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Image.asset(
+                "assets/images/logo1.png", // 👈 replace with your almanac logo
+                height: 32,
+                width: 32,
+              ),
+            ),
+          ),
+        ],
+      ),
 
-
-
-
-
-
-
+      // Profile button
+      GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+        ),
+        child: CircleAvatar(
+          radius: 20,
+          backgroundImage: (_localImagePath != null)
+              ? (_localImagePath!.startsWith('assets/')
+                        ? AssetImage(_localImagePath!)
+                        : FileImage(File(_localImagePath!)))
+                    as ImageProvider
+              : const AssetImage('assets/images/avatar.jpg'),
+        ),
+      ),
+    ],
+  );
+}
 
   Widget _buildHeader() {
     return Column(
@@ -426,62 +438,72 @@ debugPrint("➡️ Navigating to FishResultScreen with $frontPath");
                     Scrollbar(
                       thumbVisibility: true,
                       controller: _scrollController,
-                      child:GridView.builder(
-  controller: _scrollController,
-  itemCount: _galleryImages.length + 1,
-  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-    crossAxisCount: 3,
-    crossAxisSpacing: 10,
-    mainAxisSpacing: 10,
-    childAspectRatio: 1,
-  ),
-  itemBuilder: (context, index) {
-    if (index == 0) {
-      return GestureDetector(
-        onTap: () async {
-          final picker = ImagePicker();
-          final picked = await picker.pickImage(source: ImageSource.gallery);
-          if (picked != null) {
-            await _runPrediction(picked.path); // ✅ run model here
-          }
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[800],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(Icons.photo_library,
-              color: Colors.white, size: 40),
-        ),
-      );
-    }
+                      child: GridView.builder(
+                        controller: _scrollController,
+                        itemCount: _galleryImages.length + 1,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
+                              childAspectRatio: 1,
+                            ),
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            return GestureDetector(
+                              onTap: () async {
+                                final picker = ImagePicker();
+                                final picked = await picker.pickImage(
+                                  source: ImageSource.gallery,
+                                );
+                                if (picked != null) {
+                                  await _runPrediction(
+                                    picked.path,
+                                  ); // ✅ run model here
+                                }
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[800],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.photo_library,
+                                  color: Colors.white,
+                                  size: 40,
+                                ),
+                              ),
+                            );
+                          }
 
-    final asset = _galleryImages[index - 1];
-    return FutureBuilder<File?>(
-      future: asset.file,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              borderRadius: BorderRadius.circular(12),
-            ),
-          );
-        }
-        final file = snapshot.data!;
-        return GestureDetector(
-          onTap: () async {
-            await _runPrediction(file.path); // ✅ run model when tapped
-          },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.file(file, fit: BoxFit.cover),
-          ),
-        );
-      },
-    );
-  },
-),
+                          final asset = _galleryImages[index - 1];
+                          return FutureBuilder<File?>(
+                            future: asset.file,
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[800],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                );
+                              }
+                              final file = snapshot.data!;
+                              return GestureDetector(
+                                onTap: () async {
+                                  await _runPrediction(
+                                    file.path,
+                                  ); // ✅ run model when tapped
+                                },
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.file(file, fit: BoxFit.cover),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
                     if (_showDateLabel && _currentDateLabel != null)
                       Positioned(

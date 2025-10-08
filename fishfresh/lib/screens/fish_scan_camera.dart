@@ -43,7 +43,8 @@ class _FishScanCameraState extends State<FishScanCamera>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_disposed) return;
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       _controller?.dispose();
       _controller = null;
       _isReady = false;
@@ -92,9 +93,9 @@ class _FishScanCameraState extends State<FishScanCamera>
     } catch (e) {
       debugPrint("❌ Camera init failed: $e");
       if (mounted && !_disposed) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Camera error: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Camera error: $e")));
       }
     }
   }
@@ -103,7 +104,9 @@ class _FishScanCameraState extends State<FishScanCamera>
     if (!_isReady || _controller == null) return;
     try {
       _isFlashOn = !_isFlashOn;
-      await _controller!.setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
+      await _controller!.setFlashMode(
+        _isFlashOn ? FlashMode.torch : FlashMode.off,
+      );
       if (mounted && !_disposed) setState(() {});
     } catch (e) {
       debugPrint("⚡ Flash error: $e");
@@ -154,7 +157,9 @@ class _FishScanCameraState extends State<FishScanCamera>
         _step = 1;
         if (mounted && !_disposed) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Front captured — now capture the BACK")),
+            const SnackBar(
+              content: Text("Front captured — now capture the BACK"),
+            ),
           );
           setState(() {});
         }
@@ -162,18 +167,17 @@ class _FishScanCameraState extends State<FishScanCamera>
         _backImagePath = file.path;
         _isClosing = true;
         if (mounted) {
-          Navigator.of(context).pop({
-            'front': _frontImagePath,
-            'back': _backImagePath,
-          });
+          Navigator.of(
+            context,
+          ).pop({'front': _frontImagePath, 'back': _backImagePath});
         }
       }
     } catch (e) {
       debugPrint("❌ Capture failed: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
       }
     }
   }
@@ -191,9 +195,7 @@ class _FishScanCameraState extends State<FishScanCamera>
   @override
   Widget build(BuildContext context) {
     if (!_isReady || _controller == null || !_controller!.value.isInitialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -220,7 +222,10 @@ class _FishScanCameraState extends State<FishScanCamera>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _TopButton(icon: Icons.close, onTap: () => Navigator.of(context).pop()),
+                _TopButton(
+                  icon: Icons.close,
+                  onTap: () => Navigator.of(context).pop(),
+                ),
                 Row(
                   children: [
                     _TopButton(
@@ -230,7 +235,7 @@ class _FishScanCameraState extends State<FishScanCamera>
                     const SizedBox(width: 8),
                     _TopButton(icon: Icons.cameraswitch, onTap: _switchCamera),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -271,7 +276,11 @@ class _FishScanCameraState extends State<FishScanCamera>
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.camera, size: 38, color: Colors.black87),
+                  child: const Icon(
+                    Icons.camera,
+                    size: 38,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
             ),

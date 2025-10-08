@@ -324,7 +324,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         fit: StackFit.expand,
         children: [
           Image.asset('assets/images/fish_bg.jpg', fit: BoxFit.cover),
-          Container(color: const Color.fromRGBO(0, 180, 120, 0.4)),
+          Container(color: const Color.fromRGBO(0, 180, 120, 0.20)),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -523,53 +523,51 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     const SizedBox(height: 16),
 
                     // Continue with Google (disabled until terms accepted)
-                    SizedBox(
-                      height: 48,
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed:
-                            (!termsAccepted || busy) ? null : _continueWithGoogle,
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.resolveWith(
-                            (states) {
-                              if (states.contains(WidgetState.disabled)) {
-                                return const Color.fromARGB(255, 42, 39, 39)
-                                    .withValues(alpha: 0.55);
-                              }
-                              return const Color.fromARGB(255, 239, 239, 239);
-                            },
-                          ),
-                          foregroundColor:
-                              const WidgetStatePropertyAll(Color.fromARGB(255, 4, 4, 4)),
-                          shape: const WidgetStatePropertyAll(
-                            RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(12)),
-                            ),
-                          ),
-                        ),
-                        child: _isGoogleLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Image.asset(
-                                    'assets/images/google_logo.png',
-                                    height: 20,
-                                    width: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text('Continue with Google',
-                                      style: TextStyle(fontSize: 16)),
-                                ],
-                              ),
-                      ),
-                    ),
+                   SizedBox(
+  height: 48,
+  width: double.infinity,
+  child: ElevatedButton(
+    onPressed: busy ? null : _continueWithGoogle,
+    style: ButtonStyle(
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (states) {
+          if (states.contains(WidgetState.disabled)) {
+            return const Color.fromARGB(255, 42, 39, 39)
+                .withValues(alpha: 0.55);
+          }
+          return const Color.fromARGB(255, 239, 239, 239);
+        },
+      ),
+      foregroundColor: const WidgetStatePropertyAll(
+          Color.fromARGB(255, 4, 4, 4)),
+      shape: const WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+    ),
+    child: _isGoogleLoading
+        ? const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+                color: Colors.white, strokeWidth: 2),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/google_logo.png',
+                height: 20,
+                width: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text('Continue with Google',
+                  style: TextStyle(fontSize: 16)),
+            ],
+          ),
+  ),
+),
                     const SizedBox(height: 16),
 
                     // Already registered? Sign In
@@ -635,18 +633,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  InputDecoration _buildInputDecoration(String hint, IconData icon,
-      {Widget? suffix}) {
-    return InputDecoration(
-      filled: true,
-      fillColor: const Color.fromARGB(255, 255, 248, 248),
-      hintText: hint,
-      prefixIcon: Icon(icon),
-      suffixIcon: suffix,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-    );
-  }
+ InputDecoration _buildInputDecoration(String hint, IconData icon,
+    {Widget? suffix}) {
+  return InputDecoration(
+    filled: true,
+    fillColor: const Color.fromARGB(255, 255, 248, 248),
+    hintText: hint,
+    hintStyle: const TextStyle(color: Colors.black54), // hint text blackish
+    prefixIcon: Icon(icon, color: Colors.black),       // icon black
+    suffixIcon: suffix != null
+        ? IconTheme(
+            data: const IconThemeData(color: Colors.black), 
+            child: suffix,
+          )
+        : null,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
+  );
 }
+
+  }
+

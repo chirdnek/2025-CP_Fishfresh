@@ -29,11 +29,19 @@ android {
         jvmTarget = "17"
     }
 
-    buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("debug")
-        }
+ buildTypes {
+    getByName("release") {
+        signingConfig = signingConfigs.getByName("debug")
+
+        isMinifyEnabled = true
+        isShrinkResources = true
+
+        proguardFiles(
+            getDefaultProguardFile("proguard-android.txt"),
+            "proguard-rules.pro"
+        )
     }
+}
 }
 
 flutter {
