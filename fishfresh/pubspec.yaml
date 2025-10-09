@@ -112,9 +112,9 @@ flutter:
     - assets/images/avatar4.png
     - assets/images/avatar5.png
     - assets/images/google_logo.png
-    - assets/model/mobilenetv2_dli14_Oct_6_5-32_am_float16.tflite
-    - assets/model/mobilenetv2_dli14_Oct_6_5-32_am_float32.tflite
-    - assets/model/classes.json
+    - assets/model/kimi.tflite
+    - assets/model/kimi32.tflite
+    - assets/model/classes_flat.json
     - assets/images/indian_mackerel.jpg
     - assets/images/yellowfin_tuna.jpg
     - assets/images/fringella_sardinella.jpg

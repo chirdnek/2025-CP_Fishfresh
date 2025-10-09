@@ -6,6 +6,10 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+// ✅ add these:
+import '../services/fish_model.dart';
+import 'fish_result_screen.dart';
+
 class FishScanCamera extends StatefulWidget {
   final List<CameraDescription> cameras;
   const FishScanCamera({required this.cameras});
@@ -20,10 +24,10 @@ class _FishScanCameraState extends State<FishScanCamera>
   bool _disposed = false;
   bool _isReady = false;
   bool _isFlashOn = false;
-  bool _isClosing = false;
   bool _scanning = false;
+  bool _runningInference = false;
   double _scanLineY = 0.0;
-  int _step = 0;
+  int _step = 0; // 0=front, 1=back
   String? _frontImagePath;
   String? _backImagePath;
 
@@ -43,8 +47,7 @@ class _FishScanCameraState extends State<FishScanCamera>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_disposed) return;
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
       _controller?.dispose();
       _controller = null;
       _isReady = false;
@@ -93,9 +96,9 @@ class _FishScanCameraState extends State<FishScanCamera>
     } catch (e) {
       debugPrint("❌ Camera init failed: $e");
       if (mounted && !_disposed) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Camera error: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Camera error: $e")),
+        );
       }
     }
   }
@@ -104,9 +107,7 @@ class _FishScanCameraState extends State<FishScanCamera>
     if (!_isReady || _controller == null) return;
     try {
       _isFlashOn = !_isFlashOn;
-      await _controller!.setFlashMode(
-        _isFlashOn ? FlashMode.torch : FlashMode.off,
-      );
+      await _controller!.setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
       if (mounted && !_disposed) setState(() {});
     } catch (e) {
       debugPrint("⚡ Flash error: $e");
@@ -120,7 +121,7 @@ class _FishScanCameraState extends State<FishScanCamera>
   }
 
   void _startScanAndCapture() {
-    if (!_isReady || _controller == null || _scanning) return;
+    if (!_isReady || _controller == null || _scanning || _runningInference) return;
 
     setState(() {
       _scanning = true;
@@ -145,39 +146,104 @@ class _FishScanCameraState extends State<FishScanCamera>
   }
 
   Future<void> _capturePictureAfterScan() async {
-    if (!_isReady || _controller == null || _disposed || _isClosing) return;
+    if (!_isReady || _controller == null || _disposed || _runningInference) return;
+
     try {
+      // ✅ request gallery permission before saving
+      final perm = await PhotoManager.requestPermissionExtend();
+      if (!perm.isAuth) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Gallery permission denied")),
+          );
+        }
+      }
+
       final file = await _controller!.takePicture();
 
-      // ✅ save to gallery
-      await PhotoManager.editor.saveImageWithPath(file.path);
+      // ✅ save to gallery (best effort)
+      try {
+        await PhotoManager.editor.saveImageWithPath(file.path);
+      } catch (e) {
+        debugPrint("⚠️ Save to gallery failed: $e");
+      }
 
       if (_step == 0) {
         _frontImagePath = file.path;
         _step = 1;
         if (mounted && !_disposed) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Front captured — now capture the BACK"),
-            ),
+            const SnackBar(content: Text("Front captured — now capture the BACK")),
           );
           setState(() {});
         }
       } else {
         _backImagePath = file.path;
-        _isClosing = true;
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pop({'front': _frontImagePath, 'back': _backImagePath});
-        }
+        // We have both → run inference here and go to results
+        await _runModelAndGoToResults();
       }
     } catch (e) {
       debugPrint("❌ Capture failed: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Capture failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _runModelAndGoToResults() async {
+    if (_frontImagePath == null || _backImagePath == null) return;
+    if (!mounted || _disposed) return;
+
+    setState(() => _runningInference = true);
+
+    try {
+      final model = FishModel();
+      await model.init();
+
+      // 🔮 Pair prediction (front+back rule inside the model)
+      final res = await model.predictPair(_frontImagePath!, _backImagePath!);
+
+      if (!mounted) return;
+
+      // Build a result map for the UI's "Model Summary"
+      // Prefer the front's scores; if null, fallback to back.
+      final front = (res['front_result'] as Map?) ?? const {};
+      final back  = (res['back_result'] as Map?) ?? const {};
+
+      final summary = <String, dynamic>{
+        'confidence': (front['confidence'] as num?)?.toDouble()
+                      ?? (back['confidence'] as num?)?.toDouble()
+                      ?? 0.0,
+        'freshness_scores': (front['freshness_scores'] as Map<String, dynamic>?)
+                            ?? (back['freshness_scores'] as Map<String, dynamic>?),
+        'species_scores': (front['species_scores'] as Map<String, dynamic>?)
+                          ?? (back['species_scores'] as Map<String, dynamic>?),
+      };
+
+      // Navigate to results
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FishResultScreen(
+            imagePath: _frontImagePath!, // show front image as preview
+            species: (res['predicted_species'] as String?) ?? 'Unknown',
+            freshnessLabel: (res['predicted_freshness'] as String?) ?? 'Unknown',
+            result: summary,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ Inference error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Inference error: $e')),
+        );
+      }
+    } finally {
+      if (mounted && !_disposed) {
+        setState(() => _runningInference = false);
       }
     }
   }
@@ -202,6 +268,7 @@ class _FishScanCameraState extends State<FishScanCamera>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // Camera preview
           Positioned.fill(
             child: _controller != null
                 ? FittedBox(
@@ -214,6 +281,7 @@ class _FishScanCameraState extends State<FishScanCamera>
                   )
                 : const Center(child: CircularProgressIndicator()),
           ),
+
           // Top buttons
           Positioned(
             top: MediaQuery.of(context).padding.top + 10,
@@ -239,6 +307,7 @@ class _FishScanCameraState extends State<FishScanCamera>
               ],
             ),
           ),
+
           // Step text
           Positioned(
             top: MediaQuery.of(context).padding.top + 70,
@@ -253,6 +322,7 @@ class _FishScanCameraState extends State<FishScanCamera>
               ),
             ),
           ),
+
           // Scan FX
           if (_scanning)
             Positioned(
@@ -261,30 +331,58 @@ class _FishScanCameraState extends State<FishScanCamera>
               right: 0,
               child: Container(height: 3, color: Colors.cyanAccent),
             ),
-          // Capture button
+
+          // Capture button (disabled during inference)
           Positioned(
             bottom: MediaQuery.of(context).padding.bottom + 24,
             left: 0,
             right: 0,
             child: Center(
-              child: GestureDetector(
-                onTap: _startScanAndCapture,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.camera,
-                    size: 38,
-                    color: Colors.black87,
+              child: IgnorePointer(
+                ignoring: _runningInference,
+                child: Opacity(
+                  opacity: _runningInference ? 0.3 : 1,
+                  child: GestureDetector(
+                    onTap: _startScanAndCapture,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.camera,
+                        size: 38,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
+
+          // Inference overlay
+          if (_runningInference)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.4),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text(
+                        "Analyzing fish...",
+                        style: TextStyle(color: Colors.white),
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
