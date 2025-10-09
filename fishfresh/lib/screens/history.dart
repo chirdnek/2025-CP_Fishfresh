@@ -41,9 +41,7 @@ class _HistoryPageState extends State<HistoryPage>
 
     if (user == null) {
       return const Scaffold(
-        body: Center(
-          child: Text("You must be logged in to see history"),
-        ),
+        body: Center(child: Text("You must be logged in to see history")),
       );
     }
 
@@ -51,121 +49,132 @@ class _HistoryPageState extends State<HistoryPage>
       backgroundColor: Colors.transparent,
 
       /// ---------------- APPBAR ----------------
-    appBar: AppBar(
-  backgroundColor: Colors.transparent,
-  elevation: 0,
-  automaticallyImplyLeading: false,
-  title: AnimatedSwitcher(
-    duration: const Duration(milliseconds: 300),
-    child: _showSearch
-        ? Row(
-            key: const ValueKey("search"),
-            children: [
-              Expanded(
-                child: Container(
-                  height: 50,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    onChanged: (v) =>
-                        setState(() => _searchQuery = v.trim()),
-                    decoration: InputDecoration(
-                      hintText: "Search species...",
-                      hintStyle: const TextStyle(
-                        color: Colors.black54, // ✅ dark hint
-                        fontWeight: FontWeight.w500,
-                      ),
-                      border: InputBorder.none,
-                      prefixIcon: IconButton(
-                        icon: const Icon(Icons.arrow_back,
-                            color: Colors.black87),
-                        onPressed: () {
-                          setState(() {
-                            _showSearch = false;
-                            _searchController.clear();
-                            _searchQuery = null;
-                          });
-                        },
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: _showSearch
+              ? Row(
+                  key: const ValueKey("search"),
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          onChanged: (v) =>
+                              setState(() => _searchQuery = v.trim()),
+                          decoration: InputDecoration(
+                            hintText: "Search species...",
+                            hintStyle: const TextStyle(
+                              color: Colors.black54, // ✅ dark hint
+                              fontWeight: FontWeight.w500,
+                            ),
+                            border: InputBorder.none,
+                            prefixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Colors.black87,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _showSearch = false;
+                                  _searchController.clear();
+                                  _searchQuery = null;
+                                });
+                              },
+                            ),
+                          ),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black, // ✅ black typed text
+                          ),
+                        ),
                       ),
                     ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black, // ✅ black typed text
+                  ],
+                )
+              : Row(
+                  key: const ValueKey("filters"),
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: Container(
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value:
+                              _freshnessFilter == null ||
+                                  _freshnessFilter!.isEmpty
+                              ? null
+                              : _freshnessFilter,
+                          isDense: true,
+                          dropdownColor: Colors.white, // ✅ dropdown menu white
+                          icon: const Icon(
+                            Icons.arrow_drop_down,
+                            color: Colors.black,
+                          ), // ✅ arrow
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText:
+                                "Select Fish Freshness", // ✅ visible when null
+                            hintStyle: TextStyle(
+                              color: Colors.black, // ✅ black hint text
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black, // ✅ black selected text
+                          ),
+                          onChanged: (v) =>
+                              setState(() => _freshnessFilter = v),
+                          items: ["Fresh", "Not Fresh"].map((f) {
+                            return DropdownMenuItem(
+                              value: f,
+                              child: Text(
+                                f,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors
+                                      .black, // ✅ black text in dropdown list
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(width: 8),
+                    _buildIconBox(
+                      icon: Icons.search,
+                      onTap: () => setState(() => _showSearch = true),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildIconBox(
+                      icon: Icons.filter_list,
+                      onTap: () => _openFilterSheet(context),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          )
-        : Row(
-            key: const ValueKey("filters"),
-            children: [
-         Expanded(
-  flex: 5,
-  child: Container(
-    height: 50,
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child:DropdownButtonFormField<String>(
-  value: _freshnessFilter == null || _freshnessFilter!.isEmpty ? null : _freshnessFilter,
-  isDense: true,
-  dropdownColor: Colors.white, // ✅ dropdown menu white
-  icon: const Icon(Icons.arrow_drop_down, color: Colors.black), // ✅ arrow
-  decoration: const InputDecoration(
-    border: InputBorder.none,
-    hintText: "Select Fish Freshness", // ✅ visible when null
-    hintStyle: TextStyle(
-      color: Colors.black, // ✅ black hint text
-      fontWeight: FontWeight.w600,
-    ),
-  ),
-  style: const TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Colors.black, // ✅ black selected text
-  ),
-  onChanged: (v) => setState(() => _freshnessFilter = v),
-  items: ["Fresh", "Not Fresh"].map((f) {
-    return DropdownMenuItem(
-      value: f,
-      child: Text(
-        f,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.black, // ✅ black text in dropdown list
         ),
       ),
-    );
-  }).toList(),
-),
-
-  ),
-),
-
-              const SizedBox(width: 8),
-              _buildIconBox(
-                icon: Icons.search,
-                onTap: () => setState(() => _showSearch = true),
-              ),
-              const SizedBox(width: 8),
-              _buildIconBox(
-                icon: Icons.filter_list,
-                onTap: () => _openFilterSheet(context),
-              ),
-            ],
-          ),
-  ),
-),
 
       /// ---------------- BODY ----------------
       body: Container(
@@ -173,10 +182,7 @@ class _HistoryPageState extends State<HistoryPage>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color.fromARGB(255, 9, 59, 51),
-              Colors.black,
-            ],
+            colors: [Color.fromARGB(255, 9, 59, 51), Colors.black],
           ),
         ),
         child: StreamBuilder<QuerySnapshot>(
@@ -197,9 +203,10 @@ class _HistoryPageState extends State<HistoryPage>
                   "No scans yet.\nStart scanning fish to see them here!",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600),
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               );
             }
@@ -212,10 +219,9 @@ class _HistoryPageState extends State<HistoryPage>
               }
               if (_searchQuery != null &&
                   _searchQuery!.isNotEmpty &&
-                  !data['species']
-                      .toString()
-                      .toLowerCase()
-                      .contains(_searchQuery!.toLowerCase())) {
+                  !data['species'].toString().toLowerCase().contains(
+                    _searchQuery!.toLowerCase(),
+                  )) {
                 return false;
               }
               return true;
@@ -226,9 +232,10 @@ class _HistoryPageState extends State<HistoryPage>
                 child: Text(
                   "No history matches your filters.",
                   style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600),
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               );
             }
@@ -241,8 +248,10 @@ class _HistoryPageState extends State<HistoryPage>
                 final date = (data['timestamp'] as Timestamp).toDate();
 
                 return Container(
-                  margin:
-                      const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 12,
+                  ),
                   child: Dismissible(
                     key: Key(doc.id),
                     direction: DismissDirection.endToStart,
@@ -251,17 +260,18 @@ class _HistoryPageState extends State<HistoryPage>
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text("Confirm Deletion"),
-                          content:
-                              const Text("Delete this scan history entry?"),
+                          content: const Text(
+                            "Delete this scan history entry?",
+                          ),
                           actions: [
                             TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(false),
-                                child: const Text("Cancel")),
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text("Cancel"),
+                            ),
                             TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(true),
-                                child: const Text("Delete")),
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text("Delete"),
+                            ),
                           ],
                         ),
                       );
@@ -270,10 +280,14 @@ class _HistoryPageState extends State<HistoryPage>
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.delete,
-                          color: Colors.white, size: 28),
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.delete,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
                     child: Container(
                       padding: const EdgeInsets.all(12),
@@ -282,9 +296,10 @@ class _HistoryPageState extends State<HistoryPage>
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: const [
                           BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 6,
-                              offset: Offset(0, 3))
+                            color: Colors.black26,
+                            blurRadius: 6,
+                            offset: Offset(0, 3),
+                          ),
                         ],
                       ),
                       child: Row(
@@ -292,7 +307,8 @@ class _HistoryPageState extends State<HistoryPage>
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: (data['localImagePath'] != null &&
+                            child:
+                                (data['localImagePath'] != null &&
                                     data['localImagePath']
                                         .toString()
                                         .isNotEmpty)
@@ -306,8 +322,10 @@ class _HistoryPageState extends State<HistoryPage>
                                     width: 70,
                                     height: 70,
                                     color: Colors.grey[300],
-                                    child: const Icon(Icons.image,
-                                        color: Colors.grey),
+                                    child: const Icon(
+                                      Icons.image,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                           ),
                           const SizedBox(width: 12),
@@ -331,8 +349,9 @@ class _HistoryPageState extends State<HistoryPage>
                                     Text(
                                       timeago.format(date, locale: 'en_short'),
                                       style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black87),
+                                        fontSize: 12,
+                                        color: Colors.black87,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -340,13 +359,17 @@ class _HistoryPageState extends State<HistoryPage>
                                 Text(
                                   "Fish id: ${data['fishId'] ?? 'N/A'}",
                                   style: const TextStyle(
-                                      fontSize: 12, color: Colors.black54),
+                                    fontSize: 12,
+                                    color: Colors.black54,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 8),
+                                      horizontal: 14,
+                                      vertical: 8,
+                                    ),
                                     backgroundColor: Colors.green,
                                   ),
                                   onPressed: () {
@@ -356,8 +379,7 @@ class _HistoryPageState extends State<HistoryPage>
                                         builder: (_) => FishResultScreen(
                                           imagePath:
                                               data['localImagePath'] ?? "",
-                                          species:
-                                              data['species'] ?? "Unknown",
+                                          species: data['species'] ?? "Unknown",
                                           freshnessLabel:
                                               data['freshness'] ?? "Unknown",
                                         ),
@@ -367,8 +389,9 @@ class _HistoryPageState extends State<HistoryPage>
                                   child: const Text(
                                     "View details",
                                     style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600),
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],

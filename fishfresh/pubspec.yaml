@@ -97,6 +97,7 @@ flutter:
   assets:
     - assets/images/scan.png
     - assets/images/logo.png
+    - assets/images/almanac_logo.png
     - assets/images/logo1.png
     - assets/images/logo0.png
     - assets/images/freshness.png
@@ -111,11 +112,14 @@ flutter:
     - assets/images/avatar4.png
     - assets/images/avatar5.png
     - assets/images/google_logo.png
-    - assets/model/multitask_labels.json
-    - assets/model/mobilenetv2_dli14_Sept_13_10-20_am_float16.tflite
-    - assets/model/mobilenetv2_dli14_Sept_21_4-47_am_float16.tflite
-    - assets/model/classes.json
-  
+    - assets/model/kimi.tflite
+    - assets/model/kimi32.tflite
+    - assets/model/classes_flat.json
+    - assets/images/indian_mackerel.jpg
+    - assets/images/yellowfin_tuna.jpg
+    - assets/images/fringella_sardinella.jpg
+    - assets/images/bigeye_scad.jpg
+    - assets/images/country_maiden.jpg
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

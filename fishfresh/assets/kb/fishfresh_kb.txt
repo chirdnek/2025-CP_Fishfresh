@@ -1,398 +1,257 @@
-### Project Context — Zamboanga City
-Zamboanga City is a major fishing hub. Fishing is woven into daily life and the local economy. Consumers depend on fresh seafood for nutrition and health; trust in vendors and local markets hinges on freshness.
+Q: What is the context of FishFresh?
+A: FishFresh is developed for Zamboanga City, a major fishing hub in the Philippines. Freshness of fish is critical to nutrition, health, safety, and fair trade. Traditional freshness checks are subjective and inconsistent, leading to disputes and food safety risks.
 
-### Why Freshness Matters
-Freshness affects safety, taste, texture, and nutrients. Spoiled seafood risks illness. Reliable freshness boosts consumer trust and loyalty and supports higher-value trade.
+❓ Why Freshness Matters
 
-### Problem with Traditional Checks
-Current checks (eyes, gill smell/color, skin/flesh feel) are subjective and inconsistent. Sellers and buyers may disagree; consumers often lack skill to assess accurately. This causes distrust, unfair pricing, and safety risk.
+Q: Why does fish freshness matter?
+A:
 
-### Need for an Objective Tool
-There’s no quick, universal freshness marker at the point of sale. The city needs a portable, easy-to-use, real-time, objective method that improves safety, trust, and transparency.
+Fresh fish = safe, nutritious, tasty.
 
-### Proposed Solution — FishFresh (Overview)
-A mobile computer-vision app analyzes photos of fish (eyes, gills, skin/shine) to produce an objective freshness score. Runs on a smartphone camera; provides consistent guidance at markets and groceries.
+Spoiled fish risks illness.
 
-### How FishFresh Works (High-level)
-1) Capture fish photo (good lighting, steady phone).  
-2) Model analyzes eye clarity, gill color, skin/shine.  
-3) App outputs an easy, objective score (and label like Fresh / Semi-fresh / Not fresh).  
-4) Users make safer, more confident purchases; vendors benefit from trust and fair pricing.
+Reliable freshness builds trust, reduces waste, and supports fair pricing.
 
-### Benefits to Users & Community
-• Safer food choices and fewer spoiled purchases.  
-• Confidence and fairness in pricing.  
-• Less waste; more trust in local seafood.  
-• Simple, portable tool—no expertise needed.
+⚠️ Problems with Traditional Checks
 
-### General Problem Statement
-The city lacks an objective, accurate, readily available method to determine fish freshness, causing inconsistency, reduced trust, and inefficiency.
+Q: What are the problems with traditional freshness checks?
+A:
 
-### Specific Problems
-1) Subjective human judgment leads to disagreement and unreliability.  
-2) Computer vision/mobile methods are not yet broadly used in local markets.  
-3) Some target users (e.g., fishermen, market sellers) have low technical literacy.  
-4) Local studies lack robust visual-signal identification (eyes/gills/skin) for freshness.  
-5) No scientific tool → unfair prices, lost trust, and higher post-harvest losses.
+Based on subjective judgment (eyes, gills, skin, smell).
 
-### Purpose & Description of FishFresh
-Provide an ergonomic, objective, phone-based freshness score so buyers can avoid unsafe/low-quality fish and pay fairly. Supports faster, transparent transactions and improves market trust.
+Leads to disagreement between buyers & sellers.
 
-### What Makes It Novel
-Brings computer vision directly to consumers’ phones; replaces subjective eyeballing with consistent, data-driven scoring; tackles a daily, real-world pain point in local markets.
+Many consumers lack the skill to check accurately.
 
-### Primary Objective
-Build and evaluate a real-time mobile app that scans fish freshness and replaces subjective judgment with a standard, measurable approach.
+Causes distrust, unfair prices, and safety risks.
 
-### Specific Objectives
-• Use visual features (eye clarity, gill color, skin brightness) to assess freshness.  
-• Build a mobile app to capture and analyze fish images.  
-• Integrate a trained model for ~3–5s analysis per scan.  
-• Design an algorithm to output a clear, objective freshness score.
+✅ Solution
 
-### Scope
-Mobile app for consumers/buyers in Zamboanga City at point-of-sale (markets/grocers). Features: image capture, CV model inference, and simple result UI. No special skills needed.
+Q: What is FishFresh?
+A:
 
-### Limitations
-• No IoT hardware; mobile only.  
-• Visual-only freshness (not pre-catch or long-term storage factors).  
-• Not for chopped/cut fish.  
-• Trained for common local species; exotic/rare species out of scope.  
-• Camera quality and lighting can affect performance.
+A mobile app that uses computer vision + AI.
 
-### Significance of the Study
-Shows practical AI/CV for food quality; improves public health and market transparency; empowers ordinary consumers; supports sustainable, trustworthy seafood trade in the community.
+Analyzes fish photos (eyes, gills, skin, shine).
 
-### Definitions (selected)
-Mobile Operating System — phone platform that provides camera/compute for the app.  
-Computer Vision — AI that interprets images/video.  
-Fish Freshness Assessment — evaluating quality/decay stage.  
-Image Processing — computational transforms to enhance/extract info.  
-Artificial Intelligence — systems performing tasks needing human-like intelligence.  
-Machine Learning — AI that learns patterns from data without explicit rules.  
-Freshness Indicators — measurable signals that reflect food freshness.  
-Spoilage — process of decay in food.  
-Subjective Assessment — evaluation based on personal judgment.  
-Objective Assessment — evaluation based on measurable, unbiased criteria.
+Gives a freshness score + label (Fresh / Not Fresh).
 
-### Related Work — Highlights
-• Wavelet/gill analysis can classify freshness (non-destructive) with high accuracy.  
-• Eye-image analysis via DL+ML (MobileNetV2, VGG16, ResNet50 with SVM/ANN/LR) achieved up to ~100% on specific datasets.  
-• K-NN with image features (RGB/ROI on eyes/gills/skin) works in mobile settings.  
-• YOLOv5/Faster-R-CNN for eye detection; YOLOv5 hit ~99.3% on a freshness dataset.  
-• Hyperspectral imaging is powerful in labs, but less practical for mobile retail use.
+Works in real-time (3–5s) using a smartphone camera.
 
-### Synthesis
-Literature shows subjective checks can be replaced by AI on visual cues (eyes/gills/skin). Mobile apps can deliver real-time, non-destructive, accurate assessments. This underpins FishFresh’s feasibility and value for post-harvest quality in local markets.
+Helps both consumers and vendors by making decisions objective.
 
+🎯 Objectives
 
-Research Design
+Q: What is the main objective of FishFresh?
+A: To develop and evaluate a mobile app that gives an objective, real-time freshness classification, replacing subjective judgment.
 
-	This study uses a developmental–experimental research design. The developmental phase focuses on creating a mobile application that uses computer vision and machine learning to classify the freshness of fish. The system is designed to process fish images and generate results that can guide buyers and vendors in assessing quality.
+Q: What are the specific objectives?
+A:
 
-The experimental phase evaluates how well different deep learning models, specifically MobileNetV2, EfficientNet-Lite, and ResNet50 perform in classifying fish freshness. These models are trained and tested using expert-validated fish images under the same conditions to ensure fair comparison. Their performance is measured using accuracy, precision, while also considering speed and efficiency on mobile devices. The best-performing model will then be selected and integrated into the application for real-time use.
+Assess freshness using visual cues (eye clarity, gill color, skin shine).
 
-Data Source
+Build a mobile app for capturing & analyzing fish images.
 
-This study used both primary and secondary data sources. The primary data were collected through direct participation of fish vendors and consumers in Zamboanga City, as well as through visual image datasets of fish species captured in local market settings. These were complemented by secondary data obtained from expert validation and guidance provided by fisheries specialists from the Bureau of Fisheries and Aquatic Resources (BFAR) and the Zamboanga State College of Marine Science and Technology (ZSCMST). Together, these sources ensured that the dataset reflects real-world conditions while also adhering to established scientific standards.
-
-Bureau of Fisheries and Aquatic Resources (BFAR)
-
-BFAR served as a secondary data source. Through consultations, fisheries experts provided standards and criteria for determining fish freshness, ensuring that the study’s classifications aligned with established national guidelines. Their role was not to provide direct samples but to validate the criteria used in labeling and interpreting the dataset, making the results scientifically grounded.
-
-Zamboanga State College of Marine Science and Technology (ZSCMST)
-
-Experts from ZSCMST directly contributed to the validation of the fish image dataset. Using expert validation sampling, specialists assessed the collected images and confirmed the freshness categories based on post-harvest quality markers such as eye clarity, gill color, skin brightness, and body firmness. Their professional evaluations were used as the “ground truth” labels for the training and testing of the AI model, ensuring that the dataset was reliable and unbiased.
-
-Fish Vendors
-
-Fish vendors in Zamboanga City were one of the main sources of fish samples. A purposive sampling method was used to select vendors from key local markets who sell common fish species. About 80 vendors were engaged to provide a variety of fish samples. This method was chosen because vendors are the ones directly handling and selling fish, making their contributions important in capturing how fish really appear in the market.
-
-Consumers
+Train and integrate a CNN model for ~3–5s inference.
 
-Consumers provided useful insights by sharing how they usually check fish freshness when buying. A convenience sampling method was used by approaching 100 consumers at market sites. They included household buyers, small food business owners, and regular market-goers of different ages. Their input helped the study capture real buying practices, making the system more practical and relevant to everyday use.
-
-Data Gathering Instrument
-
-The study used different tools and methods to collect the needed data. A DSLR camera (Nikon D3400) were the main instruments for capturing high-quality images of fish in market settings. These devices made sure that the photos were clear and consistent for analysis.
-
-Additionally, survey forms and questionnaires were prepared to gather information from consumers about how they usually judge fish freshness. This tool helped capture their common practices and opinions in a structured way.
-
-Data Gathering Technique and Procedures
-
-	1. Image Dataset Collection
-Local fish markets were used to obtain fresh fish samples that could represent many species. Images of each species were taken in two standardized viewpoints, front and back view. The smartphone cameras were used to take photographs in the same light and the same distance to replicate real world consumer conditions.
-
-2. Expert Validation of Labels
-Third party fisheries specialists at Zamboanga State College of Marine Science and Technology specialists and Bureau of Fisheries and Aquatic Resources were involved to ensure the scientific accuracy of the image classification of fish. To identify the levels of freshness, experts relied on the known post-harvest quality signs that included clarity in the eyes, gill color, body firmness, and skin brightness. Their ratings were taken as ground truth labels with which the machine learning model was trained and tested. This action reduced the element of bias and made sure that the dataset presents believable and valid classifications.
-
-3. Preprocessing and Augmentation of data.
-Standardization of collected images was carried out by resizing to 224x224 pixels in order to fit the model input requirements. The preprocessing like normalization and background manipulations were used to enhance homogeneity. The data augmentation methods such as zooming, horizontal movements, and shearing were applied to increase the size of the dataset and improve the model with the resistance to environmental changes.
-
-4. Recordings and Documentation of Data.
-All the gathered images, records of the expert validation and the results of the app testing were tabulated and stored. Metadata that included: species, level of freshness, purchase location, and date of collection were captured to ensure that the dataset could be reproduced and traceable. The reviews of the experts and end-users were stored so that it would be used in the future to guide the improvement of the models training and application design.
-
-Data Analysis
-
-In this scale of work, the combination of quantitative, qualitative, and mixed-methods will serve to fully assess the FishFresh system of fish freshness assessment and species identification. The quantitative analysis will use descriptive statistics to investigate the distribution of the freshness level and species classification incorporated and guided by experts who truly know the standard matrix on the specialized area and be able to lessen the confusion matrices on comparing the predictions of both versions of the PyTorch-trained model and the Tensorflow Lite-converted model to expert-labeled ground truth. The factors that will be explored through regression analysis will be the lighting conditions, camera angle, and fish type and their effect on classification performance.
-
- Qualitative analysis will consider expert validation of the freshness prediction based on conventional predictors, including gill color, eye clarity, and body firmness and survey of users including Likert-scale ratings and open-ended questions to measure the usability, trust, and satisfaction with the mobile application. The triangulation approach based on mixed methods will incorporate expert validation and user assessment to justify the accuracy of the fish freshness classifications as well as the practical usability of the system in real market conditions, making the FishFresh application both science-based and consumer-oriented.
-
-Software Development
-
-FishFresh is developed as a methodological process to design and deploy a mobile-based computer vision system that would analyze fish freshness in real-time. The front-end is created with Flutter, so the application is cross-platform with a responsive user interface. The backend is served by Firebase, using Firebase Authentication to securely authentication the user (via email, password or Google sign-in) and Firebase Firestore to store structured data, such as user profiles, scanned results and image metadata. Integration of local storage facilitates temporary storing of fish images on the gadget, which can be accessed off line until it is synchronized with cloud.
-FishFresh is based on machine learning pipeline. This is a convolutional neural network model (CNN), mostly MobileNetV2, and specifics of this model are adjusted and trained on a curated data set of fish species taken under several angles (front and back). The data is grouped into freshness ( Fresh, Borderline, Not Fresh ) categories, and the ratio of training, validation, and test sets was 60/20/20 or 70/ 20/10. Images are preprocessed with such steps as resizing to 224x 224 pixels, normalization, and augmentation (brightness, contrast adjustment, flips, zooms) to enhance resistance to real-world errors in lighting, framing, and fish position. The trained TensorFlow/Keras file can be loaded to a TensorFlow Lite (TFLite) format in order to be deployed to the mobile application, thus being able to make efficient, on-device inferences without the need to have an internet connection.
-
-The classification pipeline has two outputs (1) freshness analysis and (2) species identification. The freshness output identifies the fish as Fresh and Not Fresh. The user receives the results in a user-friendly visual interface and this includes textual guidance, a graphical freshness rating and fish species indicator. The interface is based on the principles of the user-centered design, where zooming controls, flash functionality in scanning, and the two-step capturing (front and back photos) are evident. To increase usability and confidence, the application incorporates profile and history functionality where consumers/vendors are able to read previous scans, as well as timestamps, species information, and freshness results. Such measures as notifications are introduced to remind users about scanning or data examination, and this aspect will support regular adoption to the field. Security and privacy are ensured by making sure that all the sensitive user information (email, password, biometric log in) is encrypted and verified by the secure infrastructure of Firebase.
-FishFresh software development life cycle (SDLC) is an iterative process with an Agile approach. Every sprint provides incremental functionality, starting with dataset preparation, model prototyping and front-end camera integration, followed by model optimization, cloud connectivity, and UI refinements. Testing is carried out on several levels: checks of the accuracy of data sets, Flutter widgets unit testing, integration testing of camera capture and presentation of camera results, By developing this framework, FishFresh shows an overall solution consisting of mobile computing, machine learning, that can offer a practical and innovative tool to improve the process of post-harvest fish quality assessment. 
-
-Development Approach
-The Agile approach will be implemented to develop the system of "FishFresh". The method would best suit the creation of our system that requires constant changes depending on how the user engages with it and the dynamic accuracy of the machine learning models. 
-
-Key processes within the Agile methodology for this project will include:
-Planning 
-System objectives of FishFresh are basically concerned with the point of offering an objective and accessible method of determining the freshness of fish. The main objective is to create an effective mobile based computer vision system that can be used to evaluate the freshness of fish in real time. This implies to develop the application based on the phone camera and smart technology that enables people to inform fast about the freshness of a fish. One of the primary goals is to minimize the current subjectivity of fish freshness assessment, eliminating the purely subjective approach to the assessment. The overall goal of the system is to enable consumers or buyers in Zamboanga City to have a reliable and consistent tool that empowers them to make decisions related to fish quality and, in this way, to foster transparency and, in the long run, to minimize food waste.
-In relation to user requirements, the FishFresh system should be created with the main recipients of the services of the system in mind: local consumers and fish sellers in Zamboanga City. On the consumer side, the app must be incredibly simple to use, giving them the ability to assess fish freshness Instantly and with confidence at the point of purchase, despite the consumer knowing little about the technology. They will need definite, immediate outcomes (e.g., Fresh, Not Fresh) not convoluted procedures. 
-An essential process during the design of the system is the creation of a new criteria matrix of freshness created according to the scientific principles and industry-accepted values. The experts from Bureau of Fisheries and Aquatic Resources and Zamboanga State College of Marine Science and Technology give a basis of reference to state visual signs which may be gill hue, eye transparency, or skin feel. In line with this, a partnership with the expert individuals under BFAR and ZSCMST will be implemented to personally determine key visual features and their qualities to ensure unbiased assessment of the fish, these expert-backed parameters inform the AI model’s training data and ensure that the system adheres to quality assessment norms used by Philippine regulatory bodies. The feasibility of the "FishFresh" project will be carefully assessed to ensure that the proposed solution is practical and achievable given current technologies and resources. 
-Technical feasibility - is the camera capability of the smart phones good enough in order to obtain the required visual evidence of freshness e.g. eye state, color of the gill, etc, and can the machine learning models be trained and deployed successfully on mobile phones, in real-time, or on a cloud backend with low latency limits (3-5 seconds). 
-Operational feasibility - judging whether the application may be smoothly introduced into the current market in the City of Zamboanga and whether app users will be likely to use it. 
-Economic feasibility - the cost of development and maintenance costs should have a sensible ratio with the expected benefits of the system. 
-
-Design 
-The architecture of the complete system will also be client-server based, and work well on mobile devices. The client side will be a mobile app that is based on the Flutter and is compatible with both Android and iOS devices. Image capture and display of results will be managed by this client. The server-side part will mostly handle the intensive computation work of machine learning inference and storage of data. This helps to avoid putting heavy processing on the phone of the user so that instant and precise outputs can be received.
-The UI/UX will focus more on easily understandable format so that even users with basic level of technical capabilities can also use the application with ease.
-Clean and Minimalist Design: The user interface will be clean and without much clutter which will be in respect towards the primary aim which is freshness evaluation.
-Intuitive Workflow: The primary workflow will involve clear, sequential steps:
-Image Capture Screen: A large button or space that you press to start the camera into capturing an image of a fish. On-screen instructions shall indicate how to take the best images e.g. good lighting, taking the photographs of the eyes and the gills.
-Processing Indicator: A short loading animation or message stating the procession of the image by the AI shall also appear.
-Results Display Screen: An obvious immediate indication of freshness evaluation (e.g. Fresh, Not Fresh with its level such as Level 1, Level 2, and percentage such as 50% and 100%). This screen may also have images or straight forward descriptions of the result.
-Accessibility: It will be usable by wide types of users because of large buttons that are easy to tap and readable text. The color schemes will be selected in terms of contrasting and clarity.
-Feedback Mechanisms: The application will give the user visual and textual response in every step that confirms the steps and occasional progress review.
-Database Schema
-The database shall mainly be the Firebase Firestore, a NoSQL cloud database, which has been made to support real-time data retrieval and scalability, and therefore it is an appropriate database to use in a mobile application. The schema design will be efficient in storing and retrieving the data of user interaction related to information and assessment history.
-Key collections (tables) and their fields will likely include:
-users table:
-userId (Document ID): Unique identifier for each user.
-email: User's email address (for authentication).
-username (optional): Display name.
-registrationDate: Timestamp of user registration.
-assessments table:
-assessmentId (Document ID): Unique identifier for each freshness assessment.
-userId: Reference to the users collection (who performed the assessment).
-timestamp: Date and time of the assessment.
-imageURL: URL of the captured fish image stored in cloud storage (e.g., Firebase Storage).
-freshnessScore: The numerical and categorical freshness output from the AI model (e.g., “Fresh”, "Not Fresh,").
-Machine Learning Model Requirements
-The essence of FishFresh is premised on the precision in the functioning of its Machine Learning (ML) model.
-Model Type: three deep learning models, namely, the EfficientNet-Lite, MobileNetV2 and ResNet50, will be comparatively assessed to establish the most optimal model to be used to classify fish freshness. All models will be evaluated in terms of training accuracy, inference speed, and computational cost, and robustness in terms of real-world settings. The focus will be on deploying MobileNetV2 first because it is lightweight and built to work on mobiles, and results of this comparison will be used to make the final decision on which model to deploy in production.
-Input Requirements: The model will take already pre-processed photos of fish as an input. What this will imply is that, the images will have to be:
-Standardized Size: Resized to have the same input size (i.e. 224x224 pixels), required by the arch of the MobileNetV2.
-Normalized: The pixel values were standardized to some range e.g. (0-1) with an expectation of increasing the performance of the model.
-Cleaned: There are further processes that are followed to reduce the distraction by reducing noise levels.
-Output Requirements: The model output will be freshness class or score.
-Categorical: “Not Fresh.", “Fresh”
-Numerical: Alternatively, a numerical score ranging from 1 to 100 is provided, where 100 signifies the freshest state. For categorization purposes, these numerical scores correspond to specific freshness levels:
-Level 1 (50): Fresh
-Level 2 (100): Not Fresh
-Performance Requirements:
-Accuracy: The model should be able to produce high accuracy in the prediction of fish freshness (e.g. overall accuracy of over 90%, such as the comparable works).
-Inference Speed: Assessment in real-time is of the essence and the model should be able to get an answer within 3-5s to give immediate feedback to the user.
-Robustness: Model should not be sensitive to changes in lightning, background and changes in species of fish readily available in the markets of Zamboanga City.
-Training Data: The model will need plenty of data (the bigger and more diverse the better) of fish images cleaned of any identifying features and properly labeled by freshness level in what is going to be extremely tedious work by experts as it will require the labeling of a spectrum of spoilage levels and different species of fish. This training and validation data will be very important in showing how the model has a generalized capability of categorizing the new unseen images.
-
-Development 
-
-Image Capture Module:
-
-In this module, it will be created in the Flutter mobile application. It will also make use of the default capabilities of the camera in the phone and take pictures effectively. Other major functionalities will involve managing the camera flash to have the best lightning, good focus on the fish and possibly having an on-screen guide or an overlay to assist the user to set the fish in good frame (e.g., eye and gills).To enhance the accuracy of the AI in freshness testing, the app will direct the users to take images under different perspectives namely lateral view (full body), the close up of the eyes and top view of the gills. 
-This type of scanning will make sure that the model is adequately equipped with visual information relative to the main indicators of freshness, minimizing the possibility of lighting or occluding, and therefore can be more correctly classified. The photographed image will be stored in the gadget until it is uploaded to be processed.
-
-
-Image Preprocessing Module:
-The primary libraries that will be accessed during this module will be OpenCV, and the libraries used will be developed with the backend service or a pre-processing service. The processes include:
-Reduce Noise: Removal of unwanted visuals (including graininess) in the image to clean it.
-Resizing/Cropping: As the image is expected in a certain size (e.g., 224x224 pixels) cropping to eliminate the non-relevant background may be involved.
-Color Normalization/Enhancement: Tone-correction of the image by color balancing and standardizing the brightness. This is an important step since in real-life lighting conditions in markets can change quite a lot and mean that a constant presentation of color will assist the AI model in making better judgements.
-
-Freshness Assessment AI Module (Feature Extraction & Classification):
-This module will be more constructed by Python on the back side server because of the computer cost of the deep learning models. It will apply the already processed picture with a pre-trained MobileNetV2 deep learning model.
-Feature Extraction: MobileNetV2 is a model of Convolutional Neural Network (CNN) and it will automatically detect and extract the key visual character (features) in the image that is related and indicates freshness. The features represent faint patterns which the AI has developed that equates to freshness (e.g. the clarity of the eyes of the fish, the color and texture of gills, the look of the skin).
-Freshness Classification: Using the features extracted then the MobileNetV2 model will classify the fish into pre-determined freshness classes (e.g. Fresh, Not Fresh) or produce a numeric freshness score. The model has been taught using a huge number of expert-labelled images of fishes and therefore is able to make correct predictions as it identifies patterns established in the training. The output will be response to the mobile application to be displayed.
-User Interface (UI) Development Module:
-This module will be developed using Flutter with Dart as its programming language. It encompasses creating:
-Image Capture Screen: The screen in which the camera image is shown and the capture button can be found.
-Results Display Screen: The screen in which the result of freshness (e.g. Fresh and a score) is noticeable to the user. This can be some visual cues or a short description.
-Searchable Interface: Users can filter or locate specific types of fish to streamline repeated assessments or focus on species-specific freshness scoring.
-Navigation Elements: buttons, tabs, or menus that enable navigation between the application components, e.g. assessment history, and settings.
-User Feedback Elements: Loading indicators (such as loading spinners) and messages that help the user see their way forward.
-Backend and Database Integration Module:
-This module will handle data flow and authentication.
-Firebase Authentication: To control the accounts of users (e.g., authorization, registration), make secure access to the application.
-Firebase Firestore Integration: The evaluation details (such as the image URLs, freshness scores, timestamps, and user IDs) will be stored in the Firestore database by writing the code. This will enable the users to possibly examine how they assessed in the past and provide data that can help to improve the models later.
-API Endpoints: Safe types of interaction channels (APIs) will be defined to be utilized between Flutter mobile application and the Python-based AI model on the server. These APIs will provide the initiatives to send pre-processed images and bring out the fresh results on the server.
-4. Testing 
-Unit Testing
-The system is tested by segments in the sense that each of the modules or individual parts is tested on whether it is executing its desired task. This includes:
-Image Capture Module: This will see to it that the app is able to fully access the camera, get a clear image and save it.
-Image Pre-processing Module: Verifies resizing, cleaning, and normalization of images.
-Freshness Scoring Module: Ensures that the AI model retrieves the correct format of prediction (label + the confidence score). 
-Authentication Module: Confirms secure authentication, new user sign-ups and session management through the use of firebase. UI Navigation: Verifies the possibility of the user to easily navigate through screens (capture, result, history).
-
-Integration Testing
-Modules are tested together to ensure they communicate properly and data flows correctly across components.
-Firebase Firestore and Firebase Authentication are tested alongside the Flutter frontend to ensure consistent data saving, retrieval, and user control.
-
-User Acceptance Testing (UAT)
-Its prototype is assigned to a small community of test users who belong to the target population niche majority of consumers and buyers in Zamboanga City.
-
-In testing the app, the users will go to realistic scenarios meaning the public markets so as to test in appropriate conditions how effective it is doing in terms of easy use, fast time and legibility of results.
-The UAT feedback will be employed to correct the UI layout, instructions, and to make the results readable.
-
-System Testing
-The complete system is tested as a whole to ensure it meets both functional and non-functional requirements:
-Real-time performance is measured (result within 3–5 seconds).
-Accuracy of freshness prediction is validated (target: 90%+ accuracy).
-Robustness under varying lighting conditions and different smartphone models is checked.
-
-Functional Requirements (System Features)
-
-User Authentication & Authorization
-Secure login and registration using email/password.
-Google sign-in option for faster onboarding.
-Biometric authentication (fingerprint/face unlock) to ensure secure and convenient access.
-User Profiling & Personalization
-User-friendly profile management (edit personal details, profile picture).
-Personalized dashboard greeting and recent activity history.
-Tracking of user scan history, including images, freshness results, timestamps, and species identified.
-Fish Scanning & Real-Time Analysis
-Capture or upload fish images via smartphone camera.
-AI-powered image analysis (PyTorch → TFLite model) to classify fish freshness (Fresh, Non-Fresh) and identify species.
-Instant display of freshness probability scores and species labels with expert-guided recommendations.
-Data Management
-Storage of scanned fish images and corresponding predictions in local and cloud databases (Firebase).
-Ability to view, update, and delete historical scan records.
-Search and filter options in history (by date, freshness, or species).
-Notifications & Messaging
-Push notifications to remind users to scan fish before purchase or consumption.
-In-app messaging/alerts with expert tips and system updates.
-Security Features
-Biometric lock for sensitive access.
-Encrypted storage of user credentials and scan data.
-Cloud backup (Firebase) to restore user data if the app is reinstalled.
-Integration with External Services
-Firebase Authentication and Firestore for secure user management and data storage.
-Push notification service for real-time alerts.
-(Optional future integration) IoT-based freshness sensors or market vendor API connections.
-
-Prototype Development
-
-
-The FishFresh app prototype allows users to check fish freshness using AI-powered image analysis. By capturing or uploading a fish photo, the app predicts freshness and species, making it practical for both consumers and vendors.
-
-
-
-
-The scanning screen is the main feature of the FishFresh app, allowing users to capture real-time images of fish for freshness assessment. The interface displays the camera preview with a clear instruction prompt, “Point your camera on the fish,” guiding users for proper image capture.
-
-Camera Preview – Full-screen live feed ensures accurate positioning of the fish.
-Top Controls – Options for toggling flash, switching cameras, and settings.
-Instruction Prompt – Provides real-time guidance to the user during scanning.
-Capture Button (bottom) – Initiates the image capture, sending the fish photo to the AI model (PyTorch → TFLite) for analysis.
-
-
-The results screen presents the outcome of the AI-powered analysis, giving users an instant evaluation of both fish freshness and species. This interface ensures that predictions are easy to understand and actionable for decision-making.
-Freshness Score (Top Circle) – Displays the probability score (e.g., 90%) with a freshness label (“Very Fresh Fish”), providing quick insight into quality.
-Species Identification – Shows the detected fish type (e.g., “Mackerel Fish”).
-Fish Analysis Panel – Highlights key features of the fish (eyes, gills, body texture) with annotated images to justify the AI decision.
-Guidelines/Advice Text – Gives practical recommendations, such as:
-Fresh: Safe to cook or sell today.
-Not fresh: Consume within 1 day, keep refrigerated.
-Scan Again Button (Bottom) – Lets the user return to scanning for another assessment.
-
-Gallery / History Interface Overview
-The gallery screen stores and displays the user’s previously scanned fish images, allowing easy access to past predictions. This feature supports traceability, enabling users to review and compare fish freshness assessments over time.
-Recents Dropdown (Top) – Lets users filter scans by date or time period (e.g., “Today”).
-Image Grid – Shows thumbnails of all scanned fish images with their stored analysis results available on tap.
-Camera Shortcut (Top-left Tile) – Quick access to the scanning feature directly from the gallery.
-Navigation Bar – Provides seamless movement between Home, History (Gallery), and Scan modes.
-
-History Interface Overview
-The history screen provides a detailed log of all fish scans performed by the user. It allows filtering, searching, and reviewing results, making it easier to track freshness assessments over time.
-Filter Dropdown (Top) – Lets users filter by freshness class (e.g., Fresh, Very Fresh, Non-Fresh, Spoiled).
-Search & Sorting Buttons – Enable quick retrieval and organization of past scans.
-Result Cards – Each entry shows:
-Fish image thumbnail.
-Species name (e.g., Mackerel Fish).
-Freshness label (e.g., Fresh, Non-Fresh).
-Date, time, and unique Fish ID.
-View Details button to reopen the full analysis.
-Navigation Bar – Allows seamless switching between Home, History, and Scan features.
-
-
-Integration with Software
-Every scan is automatically stored with metadata (image, freshness result, species, timestamp, and unique ID). These entries can be revisited for analysis, expert validation, or user reference. The ability to filter and search ensures efficient management of historical data.
-
-Developmental Tools
-
-Table 3: Developmental Tools and Cost
-Name
-Purpose
-Price
-Quantity
-Total
-Dart
-Programming Language
-Free
-1
-0
-Mobilenetv2
-Software Architecture
-Free
-1
-0
-VS Code
-Integrated Development Environment
-Free
-1
-0
-Flutter
-Application Framework
-Free
-1
-0
-PyTorch
-CNN Model Training
-Free
-1
-0
-Firebase
-Storing users data and recommendation
-Free
-1
-0
-Grand Total
-0
-
-
-Testing and Evaluation
-
-The study will be evaluated through a combination of the quantitative evaluation of the model performance, statistical evaluation, expert evaluation, and user evaluation to determine the accuracy, reliability and real world applicability of the FishFresh mobile based fish freshness assessment and species identification system.
-
-In order to evaluate the performance of CNN-based image classification system, the evaluation metrics of the standard machine learning models like accuracy, object detection and expert based matrix. These metrics will answer the question of how well the PyTorch-trained and TensorFlow Lite-converted model predicts the fish freshness ( Fresh and Not Fresh ) and species labels based on expert-labeled ground truth data. The benchmarking will include the trial of various architectures in deep learning, which include MobileNetV2, ResNet-50, and EfficientNet-Lite that will be trained and assessed on the identical dataset of annotated fish images. To find out which model has the best trade-off between accuracy and computational efficiency to deploy on a mobile device, the performance metrics will be calculated with each architecture. The chosen model will be then included in the Flutter based application in the mobile.
-
-The model outcomes will be compared to the expert estimations of fish freshness whereby fisheries professionals will examine the classifications with set parameters like gill colour, eyesight vividness and body integrity. These expert appraisals will be directly translated into the evaluation matrices and will be used as the standard of system validation of classifications. In identifying fish species, assessment will be facilitated with the research adviser but aided with face-to-face consultation to provide academic guidance and make sure it does not contradict study objectives. This strategy focuses on professional validation of freshness and control assessment of species identification, so there is a guarantee that the FishFresh system is not only scientifically-based but also practically stable.In order to achieve applicability to real world scenarios, the expert validation will be carried out with attention to evaluate the model predictions in terms of conformity with the standard freshness signals including gill color, eye clarity and body firmness. Also, 
-
-The evaluation of the AI models (MobileNetV2, EfficientNet-Lite, and ResNet50) will be done by comparing their results with the expert-labeled dataset provided by BFAR and ZSCMST. The models will be tested using a reserved test set of images that were not included in training. Their performance will be measured using accuracy, precision, recall, F1-score, and confusion matrices. These statistical methods will help verify whether the predictions are consistent and reliable across different fish species and freshness levels. 
-The combination of quantitative performance indicators of the model and qualitative expert and user comments made through this evaluation make the FishFresh system, both scientifically and practically applicable, thus, a trustworthy resource in promoting consumer confidence and fish quality assurance in the local markets.
-
-The functionality of the mobile application will also be tested through different use cases and scenarios. These include: 
-
-Image Capture Module – checks if the smartphone camera can capture clear fish images from different angles (front, back, and top view). Preprocessing and 
-
-Analysis Module – verifies that images are correctly resized, cleaned, and analyzed by the AI model within 3–5 seconds. 
-
-Freshness Result Display Module – ensures that the system outputs a clear label (Fresh, Not Fresh) along with a freshness score that is easy for users to understand. 
-
-Assessment History Module – tests if previous scans, including results and images, are stored and retrieved properly from the database. 
-
-User Authentication Module – checks if account creation, login, and logout using Firebase Authentication function securely. User Acceptance Testing (UAT) will be conducted with selected fish vendors and consumers in Zamboanga City. They will use the application in real market conditions and provide feedback on usability, clarity of results, and trust in the system. Their responses will guide improvements in the interface and result presentation. The results of the system will be validated against expert evaluations to ensure scientific accuracy. Statistical analysis, including hypothesis testing and performance benchmarking, may be applied to confirm the reliability of the model. This structured evaluation process ensures that the FishFresh system is functional, accurate, and practical for real-world use.
+Display a clear score and easy-to-understand result.
+
+📱 Scope & Limitations
+
+Q: What is the scope of FishFresh?
+A:
+
+Users: consumers and vendors in Zamboanga City.
+
+Use case: point-of-sale (markets, groceries).
+
+Features: image capture, AI-powered analysis, simple UI, profile & history.
+
+Q: What are the limitations?
+A:
+
+No IoT hardware (mobile only).
+
+Uses visual freshness only (not long-term storage).
+
+Not for cut/chopped fish.
+
+Trained only for common local species.
+
+Accuracy may vary with camera quality & lighting.
+
+🧪 Research Design
+
+Q: What research design is used?
+A:
+
+Developmental–Experimental:
+
+Developmental → build the app.
+
+Experimental → test CNN models (MobileNetV2, EfficientNet-Lite, ResNet50).
+
+Compare accuracy, speed, and efficiency.
+
+Best-performing model → deployed in the app.
+
+📊 Data Sources
+
+Q: Who are the data sources?
+A:
+
+BFAR → provided freshness standards (national guidelines).
+
+ZSCMST Experts → validated dataset (eyes, gills, skin, body firmness).
+
+Fish Vendors → ~80 vendors supplied market fish samples.
+
+Consumers → ~100 buyers surveyed for freshness-checking habits.
+
+📸 Data Gathering
+
+Q: How was data collected?
+A:
+
+Image Collection → photos from local markets (front + back view).
+
+Expert Validation → fisheries specialists confirmed freshness categories.
+
+Preprocessing → resize (224×224), normalize, augment (flip, zoom, contrast).
+
+Documentation → store metadata (species, freshness, timestamp, location).
+
+📈 Data Analysis
+
+Q: How is data analyzed?
+A:
+
+Quantitative → stats, confusion matrix, regression on lighting/angles.
+
+Qualitative → expert validation, consumer surveys.
+
+Mixed Methods → triangulation for both scientific accuracy & usability.
+
+🖥️ Software Development
+
+Q: How is FishFresh developed?
+A:
+
+Frontend → Flutter (cross-platform).
+
+Backend → Firebase (Auth, Firestore, Storage).
+
+ML Model → MobileNetV2 (converted to TFLite for mobile).
+
+Features:
+
+Biometric login.
+
+Scan history & profile.
+
+Push notifications.
+
+Two-step capture (front & back photos).
+
+🔄 Development Approach
+
+Q: What approach is used to develop FishFresh?
+A:
+
+Agile Methodology (short sprints, iterative improvements).
+
+Feasibility checks:
+
+Technical → can smartphones handle it?
+
+Operational → will users adopt it?
+
+Economic → affordable development & maintenance.
+
+🗃️ Database Schema (Firestore)
+
+Q: What does the database look like?
+A:
+
+users collection
+
+userId, email, profile info, biometrics enabled.
+
+assessments collection
+
+assessmentId, userId, timestamp.
+
+imageURL, freshnessScore, freshnessLabel, species.
+
+🤖 AI Model
+
+Q: What AI models are used?
+A: MobileNetV2, EfficientNet-Lite, and ResNet50 are tested.
+
+Q: What is the input and output of the model?
+A:
+
+Input → fish images (224×224).
+
+Output →
+
+Categorical: Fresh / Not Fresh.
+
+Numerical: Freshness score (0–100).
+
+Q: What are the requirements for the model?
+A:
+
+Accuracy ≥ 90%.
+
+Inference ≤ 5 seconds.
+
+Robustness against lighting and species variations.
+
+🧪 Testing & Evaluation
+
+Q: How is the system tested?
+A:
+
+Unit Testing → camera, AI, Firebase modules.
+
+Integration Testing → modules working together.
+
+System Testing → full app checks (real-time, robustness).
+
+User Acceptance Testing (UAT) → vendors & consumers try it in real markets.
+
+Q: What metrics are used to evaluate performance?
+A: Accuracy, Precision, Recall, F1-score, confusion matrices, and user feedback.
+
+🎁 Benefits
+
+Q: What are the benefits of FishFresh?
+A:
+
+Consumers → safer food, fair prices, confidence at purchase.
+
+Vendors → trust-building, less waste, fair trade.
+
+Community → sustainable seafood trade, transparency, food safety.
+
+✨ Novelty
+
+Q: What makes FishFresh unique?
+A:
+
+First of its kind in Zamboanga City.
+
+Replaces subjective eyeballing with objective AI analysis.
+
+Brings lab-level AI methods into everyday markets & groceries.
+
+🔮 Future Potential (optional answers chatbot can give)
+
+Expansion to more fish species.
+
+Integration with IoT freshness sensors.
+
+Add features for fish pricing advice.
+
+Multi-language support for wider adoption.

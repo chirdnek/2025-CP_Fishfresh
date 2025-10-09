@@ -65,11 +65,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.dispose();
   }
 
-  Future<void> _finishAndGo(Widget screen) async {
-    await StorageService().setOnboardingSeen();
-    if (!mounted) return;
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => screen));
-  }
+Future<void> _finishAndGo(Widget screen) async {
+  await StorageService().setSeenOnboarding(); // <-- rename here
+  if (!mounted) return;
+  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => screen));
+}
 
   Color _contrast(Color bg) =>
       ThemeData.estimateBrightnessForColor(bg) == Brightness.dark ? Colors.white : Colors.black;

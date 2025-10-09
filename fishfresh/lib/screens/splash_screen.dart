@@ -1,30 +1,23 @@
 // lib/screens/splash_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../services/biometrics_service.dart';
-import '../services/storage_service.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.onFinished});
+  final VoidCallback? onFinished;
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-  // Logo scale animation
   late final AnimationController _logoCtrl;
   late final Animation<double> _logoScale;
 
-  // Text slide + fade animation
   late final AnimationController _textCtrl;
   late final Animation<Offset> _textOffset;
   late final Animation<double> _textFade;
-
-  final _bio = BiometricsService();
 
   @override
   void initState() {
@@ -48,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
     ).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
     _textFade = CurvedAnimation(parent: _textCtrl, curve: Curves.easeIn);
 
-    // Sequence: pause → logo pop → pause → text slide → navigate
+    // Animate → then notify the director to route
     Future.delayed(const Duration(milliseconds: 500), () async {
       if (!mounted) return;
       await _logoCtrl.forward();
@@ -56,43 +49,8 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
       await _textCtrl.forward();
       if (!mounted) return;
-      _goNext();
+      widget.onFinished?.call(); // <-- routing happens in SplashDirector
     });
-  }
-
-  Future<void> _goNext() async {
-    final storage = StorageService();
-    final seen = await storage.hasSeenOnboarding();
-    if (!seen) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/onboarding');
-      return;
-    }
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/login');
-      return;
-    }
-
-    bool needsBiometrics = false;
-    try {
-      final snap =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      needsBiometrics = (snap.data()?['biometricsEnabled'] ?? false) as bool;
-    } catch (_) {}
-
-    if (needsBiometrics) {
-      final (ok, _) = await _bio.authenticate(
-        allowDeviceCredential: true,
-        reason: 'Unlock FishFresh',
-      );
-      debugPrint('Biometric result: $ok');
-    }
-
-    if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/home');
   }
 
   @override
@@ -104,11 +62,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Make the logo nice and big but still responsive
     final screenW = MediaQuery.of(context).size.width;
-    final rawSize = screenW * 0.30; // 42% of width
-    // ignore: unnecessary_cast
-    final logoSize = (rawSize.clamp(110.0, 170.0)) as double; // keep within sane bounds
+    final logoSize = (screenW * 0.30).clamp(110.0, 170.0).toDouble();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -126,8 +81,7 @@ class _SplashScreenState extends State<SplashScreen>
                   fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 8), // closer spacing
-
+              const SizedBox(height: 8),
               FadeTransition(
                 opacity: _textFade,
                 child: SlideTransition(
@@ -135,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen>
                   child: const Text(
                     'FishFresh',
                     style: TextStyle(
-                      fontSize: 38,              // a bit larger for presence
+                      fontSize: 38,
                       fontWeight: FontWeight.w800,
                       color: Colors.black,
                       letterSpacing: 0.5,

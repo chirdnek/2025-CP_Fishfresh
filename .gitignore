@@ -1,0 +1,11 @@
+# Python / Jupyter
+.venv/
+.tfliteenv/
+model/.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+
+# datasets
+model/datasets/*
+model/pytorch_imagenet/

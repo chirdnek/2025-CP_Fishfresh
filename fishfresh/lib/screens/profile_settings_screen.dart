@@ -354,17 +354,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-           CircleAvatar(
-  radius: 25,
-  backgroundImage: (_localImagePath != null)
-      ? (_localImagePath!.startsWith('assets/')
-          // Show preset avatar from assets
-          ? AssetImage(_localImagePath!)
-          // Show gallery image from local file
-          : FileImage(File(_localImagePath!))) as ImageProvider
-      // Default fallback avatar
-      : const AssetImage('assets/images/avatar.jpg'),
-),
+              CircleAvatar(
+                radius: 25,
+                backgroundImage: (_localImagePath != null)
+                    ? (_localImagePath!.startsWith('assets/')
+                              // Show preset avatar from assets
+                              ? AssetImage(_localImagePath!)
+                              // Show gallery image from local file
+                              : FileImage(File(_localImagePath!)))
+                          as ImageProvider
+                    // Default fallback avatar
+                    : const AssetImage('assets/images/avatar.jpg'),
+              ),
               Positioned(
                 top: -4,
                 right: -4,
@@ -395,17 +396,18 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       ),
       child: Row(
         children: [
-       CircleAvatar(
-  radius: 25,
-  backgroundImage: (_localImagePath != null)
-      ? (_localImagePath!.startsWith('assets/')
-          // Show preset avatar from assets
-          ? AssetImage(_localImagePath!)
-          // Show gallery image from local file
-          : FileImage(File(_localImagePath!))) as ImageProvider
-      // Default fallback avatar
-      : const AssetImage('assets/images/avatar.jpg'),
-),
+          CircleAvatar(
+            radius: 25,
+            backgroundImage: (_localImagePath != null)
+                ? (_localImagePath!.startsWith('assets/')
+                          // Show preset avatar from assets
+                          ? AssetImage(_localImagePath!)
+                          // Show gallery image from local file
+                          : FileImage(File(_localImagePath!)))
+                      as ImageProvider
+                // Default fallback avatar
+                : const AssetImage('assets/images/avatar.jpg'),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
@@ -489,11 +491,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             },
           ),
 
-        _settingItem(
-          icon: Icons.shield_outlined,
-          title: 'Two-Factor Authentication',
-          subtitle: 'Further secure your account for safety',
-        ),
+       
 
         // Logout (clears Google too)
         _settingItem(

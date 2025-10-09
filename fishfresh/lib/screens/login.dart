@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, avoid_print
+// ignore_for_file: use_build_context_synchronously, avoid_print, unused_import
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -200,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
         fit: StackFit.expand,
         children: [
           Image.asset('assets/images/fish_bg.jpg', fit: BoxFit.cover),
-          Container(color: const Color.fromRGBO(0, 180, 120, 0.40)),
+          Container(color: const Color.fromRGBO(0, 180, 120,0.20)),
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 30),
@@ -314,20 +314,52 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
 
                   // === Google login button ===
-                  SizedBox(
-                    width: double.infinity,
-                    child: SignInButton(
-                      Buttons.google,
-                      text: _isGoogleLoading
-                          ? 'Signing in…'
-                          : 'Continue with Google',
-                      onPressed: busy
-                          ? () {}
-                          : () async {
-                              await _signInWithGoogle();
-                            },
-                    ),
-                  ),
+                SizedBox(
+  height: 48,
+  width: double.infinity,
+  child: ElevatedButton(
+    onPressed: busy ? null : _signInWithGoogle,   // <-- fixed
+    style: ButtonStyle(
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (states) {
+          if (states.contains(WidgetState.disabled)) {
+            return const Color.fromARGB(255, 42, 39, 39)
+                .withValues(alpha: 0.55);
+          }
+          return const Color.fromARGB(255, 239, 239, 239);
+        },
+      ),
+      foregroundColor: const WidgetStatePropertyAll(
+          Color.fromARGB(255, 4, 4, 4)),
+      shape: const WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+    ),
+    child: _isGoogleLoading
+        ? const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+                color: Colors.white, strokeWidth: 2),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/google_logo.png',
+                height: 20,
+                width: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text('Continue with Google',
+                  style: TextStyle(fontSize: 16)),
+            ],
+          ),
+  ),
+),
+
 
                   const SizedBox(height: 20),
                   Row(
@@ -363,29 +395,31 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hintText,
-    required IconData icon,
-    bool obscureText = false,
-    Widget? suffixIcon,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      style: const TextStyle(color: Colors.black),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white,
-        hintText: hintText,
-        hintStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: Icon(icon),
-        suffixIcon: suffixIcon,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
+Widget _buildTextField({
+  required TextEditingController controller,
+  required String hintText,
+  required IconData icon,
+  bool obscureText = false,
+  Widget? suffixIcon,
+}) {
+  return TextField(
+    controller: controller,
+    obscureText: obscureText,
+    style: const TextStyle(color: Colors.black), // typed text black
+    decoration: InputDecoration(
+      filled: true,
+      fillColor: Colors.white,
+      hintText: hintText,
+      hintStyle: const TextStyle(color: Colors.black), // <-- changed here
+      prefixIcon: Icon(icon, color: Colors.black), // <-- make icon black too
+      suffixIcon: suffixIcon,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
       ),
-    );
-  }
+    ),
+  );
 }
+
+  }
+

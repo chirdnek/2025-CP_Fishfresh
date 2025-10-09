@@ -1,1 +1,3 @@
-flutter run --dart-define=GEMINI_API_KEY="AIzaSyDSh38g7x2eF2_DPrSVcEWJ85utqXqxbt4"
+flutter run --dart-define=GEMINI_API_KEY="AIzaSyDSh38g7x2eF2_DPrSVcEWJ85utqXqxbt4"`
+
+flutter build apk --dart-define=GEMINI_API_KEY="AIzaSyDSh38g7x2eF2_DPrSVcEWJ85utqXqxbt4"`
