@@ -1,35 +1,34 @@
 // lib/screens/fish_result_screen.dart
-// ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api, deprecated_member_use, unintended_html_in_doc_comment
+// ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api, deprecated_member_use, unintended_html_in_doc_comment, unnecessary_nullable_for_final_variable_declarations, use_build_context_synchronously
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'fish_scan_camera.dart';
 import 'package:camera/camera.dart';
+import 'fish_scan_camera.dart';
 
 class FishResultScreen extends StatelessWidget {
-  /// REQUIRED: path to the captured/scanned image
-  final String imagePath;
+  /// Front and back captured/scanned images
+  final String frontImagePath;
+  final String backImagePath;
 
-  /// REQUIRED: separate labels
-  /// - species: e.g., "mackerel_scad"
-  /// - freshnessLabel: "Fresh" or "Not Fresh"
+  /// Species slug (e.g., "mackerel_scad") and freshness ("Fresh"/"Not Fresh")
   final String species;
   final String freshnessLabel;
 
-  /// OPTIONAL: result map from predictor to show extra info (confidence/scores)
-  /// Keys (if provided):
-  ///  - "confidence": double
-  ///  - "freshness_scores": {"Fresh": double, "Not Fresh": double}
-  ///  - "species_scores": { "<species>": double, ... }
+  /// Optional: runtime result map from predictor
   final Map<String, dynamic>? result;
 
+  /// Optional: which model produced the result (for display)
+  final String? modelName;
+
   const FishResultScreen({
-    super.key,
-    required this.imagePath,
+    required this.frontImagePath,
+    required this.backImagePath,
     required this.species,
     required this.freshnessLabel,
     this.result,
+    this.modelName,
   });
 
   // ---- helpers ----
@@ -60,9 +59,7 @@ class FishResultScreen extends StatelessWidget {
     final speciesPretty = _titleCase(species);
     final chipColor = _freshnessBg(freshnessLabel);
 
-    final double? topConfidence = (result?['confidence'] is num)
-        ? (result!['confidence'] as num).toDouble()
-        : null;
+    final double? topConfidence = _asDouble(result?['confidence']);
     final Map<String, dynamic>? freshnessScores =
         (result?['freshness_scores'] is Map<String, dynamic>)
             ? (result!['freshness_scores'] as Map<String, dynamic>)
@@ -71,6 +68,10 @@ class FishResultScreen extends StatelessWidget {
         (result?['species_scores'] is Map<String, dynamic>)
             ? (result!['species_scores'] as Map<String, dynamic>)
             : null;
+
+    final int? latencyMs = _asInt(result?['latency_ms']);
+    final List<dynamic> topk =
+        (result?['topk'] is List) ? (result!['topk'] as List) : const [];
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E1F17),
@@ -81,33 +82,22 @@ class FishResultScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        title: (modelName != null)
+            ? Text(modelName!, style: const TextStyle(color: Colors.white))
+            : null,
       ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              // Image circle + logo
-              Stack(
-                alignment: Alignment.bottomRight,
+              // ── Front and Back images ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 110,
-                    backgroundColor: Colors.grey.shade800,
-                    backgroundImage: File(imagePath).existsSync()
-                        ? FileImage(File(imagePath))
-                        : const AssetImage("assets/images/fallback.png")
-                            as ImageProvider,
-                  ),
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Image.asset(
-                      "assets/images/logo1.png",
-                      width: 45,
-                      height: 45,
-                    ),
-                  ),
+                  _imageTile(frontImagePath, 'Front'),
+                  const SizedBox(width: 12),
+                  _imageTile(backImagePath, 'Back'),
                 ],
               ),
 
@@ -143,9 +133,37 @@ class FishResultScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
-              // Timestamp
+              // Model + latency chips (optional)
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (modelName != null)
+                    Chip(
+                      backgroundColor: Colors.white.withOpacity(0.08),
+                      label: Text(
+                        modelName!,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  if (latencyMs != null)
+                    Chip(
+                      backgroundColor: Colors.white.withOpacity(0.08),
+                      avatar: const Icon(Icons.speed,
+                          color: Colors.white70, size: 18),
+                      label: Text(
+                        '$latencyMs ms',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
               Text(
                 now,
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
@@ -153,10 +171,11 @@ class FishResultScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Optional: Model summary if result is provided
+              // Model Summary
               if (topConfidence != null ||
                   freshnessScores != null ||
-                  (speciesScores != null && speciesScores.isNotEmpty))
+                  (speciesScores != null && speciesScores.isNotEmpty) ||
+                  topk.isNotEmpty)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -186,61 +205,42 @@ class FishResultScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           "Freshness scores →  Fresh: "
-                          "${(((freshnessScores['Fresh'] ?? 0.0) as num).toDouble() * 100).toStringAsFixed(1)}%   "
+                          "${(_asDouble(freshnessScores['Fresh']) * 100).toStringAsFixed(1)}%   "
                           "Not Fresh: "
-                          "${(((freshnessScores['Not Fresh'] ?? 0.0) as num).toDouble() * 100).toStringAsFixed(1)}%",
+                          "${(_asDouble(freshnessScores['Not Fresh']) * 100).toStringAsFixed(1)}%",
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 14),
                         ),
                       ],
-                      if (speciesScores != null && speciesScores.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: _topSpeciesLines(speciesScores, species),
-                          ),
-                        ),
+                      if (speciesScores != null && speciesScores.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        ..._topSpeciesLines(speciesScores, species),
+                      ],
+                      if (topk.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        const Text("Top-K classes:",
+                            style: TextStyle(color: Colors.white70)),
+                        const SizedBox(height: 6),
+                        ...topk.take(5).map((e) {
+                          final label =
+                              (e is Map && e['label'] is String) ? e['label'] as String : '';
+                          final prob = (e is Map)
+                              ? _asDouble(e['prob'])
+                              : 0.0;
+                          return Text(
+                            "• ${_titleCase(label)} — ${(prob * 100).toStringAsFixed(1)}%",
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 13),
+                          );
+                        }),
+                      ],
                     ],
                   ),
                 ),
 
-              const SizedBox(height: 24),
-
-              // Static heuristics (optional)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Fish Analysis (Heuristics)",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      "- Eye clarity: Clear and bright\n"
-                      "- Gills color: Reddish\n"
-                      "- Scales: Shiny and intact\n"
-                      "- Odor: Neutral (AI simulated)",
-                      style: TextStyle(
-                          color: Colors.white70, fontSize: 14, height: 1.6),
-                    ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 30),
 
-              // Scan Again
+              // Buttons
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.greenAccent.shade400,
@@ -254,7 +254,6 @@ class FishResultScreen extends StatelessWidget {
                 ),
                 onPressed: () async {
                   final cameras = await availableCameras();
-                  if (!context.mounted) return;
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
@@ -263,10 +262,7 @@ class FishResultScreen extends StatelessWidget {
                   );
                 },
               ),
-
               const SizedBox(height: 15),
-
-              // Done
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.white),
@@ -286,33 +282,75 @@ class FishResultScreen extends StatelessWidget {
     );
   }
 
-  /// Build UI lines for top-3 species (by probability), with the predicted species highlighted first if present.
-  List<Widget> _topSpeciesLines(
-      Map<String, dynamic> speciesScores, String predictedRaw) {
+  /// Helper to show labeled images side by side
+  Widget _imageTile(String path, String label) {
+    final exists = File(path).existsSync();
+    final img = exists
+        ? FileImage(File(path))
+        : const AssetImage("assets/images/fallback.png") as ImageProvider;
+    return Expanded(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: Image(image: img, fit: BoxFit.cover),
+            ),
+            Positioned(
+              bottom: 6,
+              left: 6,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(label,
+                    style: const TextStyle(color: Colors.white, fontSize: 12)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Species lines
+  List<Widget> _topSpeciesLines(Map<String, dynamic> speciesScores, String predictedRaw) {
     final entries = speciesScores.entries
-        .map((e) => MapEntry(e.key, (e.value as num).toDouble()))
+        .map((e) => MapEntry(e.key, _asDouble(e.value)))
         .toList();
-
     entries.sort((a, b) => b.value.compareTo(a.value));
-
     final idx = entries.indexWhere((e) => e.key == predictedRaw);
     if (idx > 0) {
       final hit = entries.removeAt(idx);
       entries.insert(0, hit);
     }
+    return entries.take(3).map((e) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: Text(
+          "• ${_titleCase(e.key)}: ${(e.value * 100).toStringAsFixed(1)}%",
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+      );
+    }).toList();
+  }
 
-    final top = entries.take(3).toList();
+  double _asDouble(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v) ?? 0.0;
+    return 0.0;
+  }
 
-    return top
-        .map(
-          (e) => Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: Text(
-              "• ${_titleCase(e.key)}: ${(e.value * 100).toStringAsFixed(1)}%",
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-          ),
-        )
-        .toList();
+  int? _asInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
   }
 }

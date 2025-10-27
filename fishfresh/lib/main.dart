@@ -1,5 +1,5 @@
 // lib/main.dart
-// ignore_for_file: avoid_print, unused_import
+// ignore_for_file: avoid_print, unused_import, sort_child_properties_last
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -13,13 +13,12 @@ import 'screens/home.dart';
 import 'screens/login.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 
-import 'services/push_notification_service.dart';
 import 'services/storage_service.dart';
 
 // NEW: network monitor + listener
 import 'services/network_monitor.dart';
 import 'widgets/network_status_listener.dart';
-
+import 'widgets/network_status_banner.dart';
 // GLOBALS
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -73,7 +72,6 @@ Future<void> main() async {
       ?.requestPermissions(alert: true, sound: true, badge: false);
 
   // Push + network
-  await PushNotificationService().initialize();
   await NetworkMonitor.instance.start();
 
   runApp(const MyApp());
@@ -88,8 +86,13 @@ class MyApp extends StatelessWidget {
       title: 'FishFresh',
       theme: ThemeData.dark(),
       scaffoldMessengerKey: rootScaffoldMessengerKey,
-      builder: (context, child) => NetworkStatusListener(child: child!),
-
+builder: (context, child) =>
+    NetworkStatusListener(
+      child: NetworkStatusBanner(           // ⬅️ add this line
+        child: child!,
+        blockInteractionsWhenOffline: false, // set to true if you want to block taps when offline
+      ),
+    ),
       // ⬇️ Show Splash immediately; SplashDirector decides where to go while it animates
       home: const SplashDirector(),
       routes: {
@@ -101,7 +104,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// --- Route director: decide in the background while splash animates ---
+
 class SplashDirector extends StatefulWidget {
   const SplashDirector({super.key});
   @override

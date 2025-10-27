@@ -59,7 +59,7 @@ dependencies:
   flutter_spinkit: ^5.2.0  # Optional, for animation effects
   permission_handler: ^11.0.1
   local_auth: ^2.3.0
-  google_generative_ai: 0.4.7
+  google_generative_ai: ^0.4.6
   google_sign_in: ^6.2.1
   sign_in_button: ^3.2.0
   connectivity_plus: ^6.0.2
@@ -112,8 +112,9 @@ flutter:
     - assets/images/avatar4.png
     - assets/images/avatar5.png
     - assets/images/google_logo.png
-    - assets/model/kimi.tflite
-    - assets/model/kimi32.tflite
+    - assets/model/efficientnetv2_Oct_19_4-18_am_float32.tflite
+    - assets/model/mobilenetv2_torchvision_Oct_25_3-08_pm_float32.tflite
+    - assets/model/resnet50Oct_24_5-19_am_float32.tflite
     - assets/model/classes_flat.json
     - assets/images/indian_mackerel.jpg
     - assets/images/yellowfin_tuna.jpg

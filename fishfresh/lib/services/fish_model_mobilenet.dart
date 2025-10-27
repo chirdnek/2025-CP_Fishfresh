@@ -9,7 +9,7 @@
   import 'package:tflite_flutter/tflite_flutter.dart';
   import 'package:image/image.dart' as img;
 
-  class FishModel {
+  class FishModelMobilenet{
     Interpreter? _interpreter;
     bool _initialized = false;
 
@@ -37,7 +37,7 @@
 
       // Load model
       _interpreter = await Interpreter.fromAsset(
-        'assets/model/kimi32.tflite',
+        'assets/model/mobilenetv2_torchvision_Oct_25_3-08_pm_float32.tflite',
       );
 
       _initialized = true;
