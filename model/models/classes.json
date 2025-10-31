@@ -1,0 +1,12 @@
+{
+  "freshness_classes": [
+    "Fresh",
+    "Not Fresh"
+  ],
+  "species_classes": [
+    "bigeye_scad",
+    "fringescale_sardinella",
+    "indian_mackerel",
+    "mackerel_scad"
+  ]
+}

@@ -3,7 +3,6 @@
 .tfliteenv/
 model/.venv/
 __pycache__/
-.ipynb_checkpoints/
 *.pyc
 
 # datasets
