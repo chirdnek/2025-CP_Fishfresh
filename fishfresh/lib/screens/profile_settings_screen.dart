@@ -654,6 +654,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
             )
           : null,
+
+      
       trailing:
           trailing ??
           (hasArrow

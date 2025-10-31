@@ -112,8 +112,7 @@ flutter:
     - assets/images/avatar4.png
     - assets/images/avatar5.png
     - assets/images/google_logo.png
-    - assets/model/kimi.tflite
-    - assets/model/kimi32.tflite
+    - assets/model/mobilenetv2_torchvision_Oct_25_3-08_pm_float32.tflite
     - assets/model/classes_flat.json
     - assets/images/indian_mackerel.jpg
     - assets/images/yellowfin_tuna.jpg

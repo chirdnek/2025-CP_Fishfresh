@@ -19,7 +19,7 @@ import 'package:fishfresh/widgets/biometric_gate.dart';
 import 'faq_screen.dart';
 import 'profile_settings_screen.dart';
 import 'fish_result_screen.dart';
-import 'package:fishfresh/screens/fish_result_screen.dart';
+
 import '../services/fish_model.dart';
 import 'fish_scan_camera.dart';
 import 'package:fishfresh/screens/history.dart';
@@ -75,36 +75,37 @@ class _HomePageState extends State<HomePage> {
     await _fetchUserData();
     await _loadGalleryImages();
   }
-
-  Future<void> _runPrediction(String imagePath) async {
-    try {
-      if (!_modelReady) {
-        await _fishModel.init();
-        _modelReady = true;
-      }
-
-      final pred = await _fishModel.predict(imagePath);
-
-      if (!mounted) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => FishResultScreen(
-            imagePath: imagePath,
-            species: pred["predicted_species"] as String,
-            freshnessLabel: pred["predicted_freshness"] as String,
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint("❌ Prediction error: $e");
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
+Future<void> _runPrediction(String imagePath) async {
+  try {
+    if (!_modelReady) {
+await _fishModel.ensureInited();      _modelReady = true;
     }
+
+    // Single-image prediction
+    final pred = await _fishModel.predict(imagePath);
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FishResultScreen(
+          frontImagePath: imagePath,     // ✅ required
+          backImagePath: imagePath,      // ✅ use same image as fallback
+          species: pred["predicted_species"] as String,
+          freshnessLabel: pred["predicted_freshness"] as String,
+          // result: pred,                // optional if you want to show scores
+        ),
+      ),
+    );
+  } catch (e) {
+    debugPrint("❌ Prediction error: $e");
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Prediction failed: $e")),
+    );
   }
+}
+
 
   @override
   void initState() {
@@ -119,8 +120,7 @@ class _HomePageState extends State<HomePage> {
 
     // warm up model
     () async {
-      await _fishModel.init();
-      if (mounted) setState(() => _modelReady = true);
+await _fishModel.ensureInited();      if (mounted) setState(() => _modelReady = true);
     }();
   }
 
@@ -257,9 +257,13 @@ class _HomePageState extends State<HomePage> {
 
       // Init model if needed
       if (!_modelReady) {
-        await _fishModel.init();
-        _modelReady = true;
+await _fishModel.ensureInited();        _modelReady = true;
       }
+
+
+
+
+
 
       // Run prediction
       final pred = await _fishModel.predictPair(frontPath, backPath);
@@ -287,16 +291,19 @@ class _HomePageState extends State<HomePage> {
       }
       debugPrint("➡️ Navigating to FishResultScreen with $frontPath");
       // ✅ Navigate to FishResultScreen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => FishResultScreen(
-            imagePath: frontPath,
-            species: pred["predicted_species"] as String,
-            freshnessLabel: pred["predicted_freshness"] as String,
-          ),
-        ),
-      );
+Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => FishResultScreen(
+      frontImagePath: frontPath,                     // ✅ REQUIRED
+      backImagePath: backPath,                       // ✅ REQUIRED
+      species: pred["predicted_species"] as String,
+      freshnessLabel: pred["predicted_freshness"] as String,
+      // result: pred,                                // (optional) if you want to show scores/latency
+    ),
+  ),
+);
+
     } catch (e) {
       debugPrint("❌ Scan error: $e");
       if (!mounted) return;

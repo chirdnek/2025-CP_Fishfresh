@@ -17,9 +17,9 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage>
     with SingleTickerProviderStateMixin {
-  String? _freshnessFilter;
+  String? _freshnessFilter; // "Fresh" | "Not Fresh" | null
   String? _searchQuery;
-  String _sortBy = "Newest";
+  String _sortBy = "Newest"; // "Newest" | "Oldest"
   bool _showSearch = false;
   late TextEditingController _searchController;
 
@@ -47,14 +47,12 @@ class _HistoryPageState extends State<HistoryPage>
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-
-      /// ---------------- APPBAR ----------------
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 250),
           child: _showSearch
               ? Row(
                   key: const ValueKey("search"),
@@ -75,15 +73,13 @@ class _HistoryPageState extends State<HistoryPage>
                           decoration: InputDecoration(
                             hintText: "Search species...",
                             hintStyle: const TextStyle(
-                              color: Colors.black54, // ✅ dark hint
+                              color: Colors.black54,
                               fontWeight: FontWeight.w500,
                             ),
                             border: InputBorder.none,
                             prefixIcon: IconButton(
-                              icon: const Icon(
-                                Icons.arrow_back,
-                                color: Colors.black87,
-                              ),
+                              icon: const Icon(Icons.arrow_back,
+                                  color: Colors.black87),
                               onPressed: () {
                                 setState(() {
                                   _showSearch = false;
@@ -92,11 +88,23 @@ class _HistoryPageState extends State<HistoryPage>
                                 });
                               },
                             ),
+                            suffixIcon: (_searchQuery?.isNotEmpty ?? false)
+                                ? IconButton(
+                                    icon: const Icon(Icons.close,
+                                        color: Colors.black54),
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchController.clear();
+                                        _searchQuery = null;
+                                      });
+                                    },
+                                  )
+                                : null,
                           ),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black, // ✅ black typed text
+                            color: Colors.black,
                           ),
                         ),
                       ),
@@ -116,51 +124,37 @@ class _HistoryPageState extends State<HistoryPage>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: DropdownButtonFormField<String>(
-                          value:
-                              _freshnessFilter == null ||
-                                  _freshnessFilter!.isEmpty
-                              ? null
-                              : _freshnessFilter,
+                          value: (_freshnessFilter?.isNotEmpty ?? false)
+                              ? _freshnessFilter
+                              : null,
+                          isExpanded: true,
                           isDense: true,
-                          dropdownColor: Colors.white, // ✅ dropdown menu white
-                          icon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: Colors.black,
-                          ), // ✅ arrow
+                          dropdownColor: Colors.white,
+                          icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+                          hint: const Text(
+                            "Select Freshness",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
                           decoration: const InputDecoration(
                             border: InputBorder.none,
-                            hintText:
-                                "Select Fish Freshness", // ✅ visible when null
-                            hintStyle: TextStyle(
-                              color: Colors.black, // ✅ black hint text
-                              fontWeight: FontWeight.w600,
-                            ),
                           ),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black, // ✅ black selected text
+                            color: Colors.black,
                           ),
-                          onChanged: (v) =>
-                              setState(() => _freshnessFilter = v),
-                          items: ["Fresh", "Not Fresh"].map((f) {
-                            return DropdownMenuItem(
-                              value: f,
-                              child: Text(
-                                f,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors
-                                      .black, // ✅ black text in dropdown list
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                          onChanged: (v) => setState(() => _freshnessFilter = v),
+                          items: const [
+                            DropdownMenuItem(value: "Fresh", child: Text("Fresh")),
+                            DropdownMenuItem(value: "Not Fresh", child: Text("Not Fresh")),
+                          ],
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 8),
                     _buildIconBox(
                       icon: Icons.search,
@@ -175,8 +169,6 @@ class _HistoryPageState extends State<HistoryPage>
                 ),
         ),
       ),
-
-      /// ---------------- BODY ----------------
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -193,65 +185,83 @@ class _HistoryPageState extends State<HistoryPage>
               .orderBy('timestamp', descending: _sortBy == "Newest")
               .snapshots(),
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _centerText(
+                "Error loading history.\n${snapshot.error}",
+              );
+            }
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Center(
-                child: Text(
-                  "No scans yet.\nStart scanning fish to see them here!",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              return _centerText(
+                "No scans yet.\nStart scanning fish to see them here!",
               );
             }
 
-            final docs = snapshot.data!.docs.where((doc) {
-              final data = doc.data() as Map<String, dynamic>;
+            // Apply client-side filters (freshness + search)
+            final filteredDocs = snapshot.data!.docs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>?;
+
+              if (data == null) return false;
+
+              final freshness = (data['freshness'] ?? '').toString();
+              final species = (data['species'] ?? '').toString();
+
               if (_freshnessFilter != null &&
-                  data['freshness'] != _freshnessFilter) {
+                  _freshnessFilter!.isNotEmpty &&
+                  freshness != _freshnessFilter) {
                 return false;
               }
               if (_searchQuery != null &&
                   _searchQuery!.isNotEmpty &&
-                  !data['species'].toString().toLowerCase().contains(
-                    _searchQuery!.toLowerCase(),
-                  )) {
+                  !species.toLowerCase().contains(_searchQuery!.toLowerCase())) {
                 return false;
               }
               return true;
             }).toList();
 
-            if (docs.isEmpty) {
-              return const Center(
-                child: Text(
-                  "No history matches your filters.",
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              );
+            if (filteredDocs.isEmpty) {
+              return _centerText("No history matches your filters.");
             }
 
             return ListView.builder(
-              itemCount: docs.length,
+              itemCount: filteredDocs.length,
               itemBuilder: (ctx, i) {
-                final doc = docs[i];
-                final data = doc.data() as Map<String, dynamic>;
-                final date = (data['timestamp'] as Timestamp).toDate();
+                final doc = filteredDocs[i];
+                final data = (doc.data() as Map<String, dynamic>)..removeWhere(
+                    (key, value) => value == null);
+
+                // Timestamp
+                DateTime date = DateTime.now();
+                final ts = data['timestamp'];
+                if (ts is Timestamp) date = ts.toDate();
+
+                final frontPath = (data['frontImagePath'] ?? '') as String;
+                final backPath =
+                    (data['backImagePath'] as String?) ?? frontPath;
+                final species = (data['species'] ?? 'Unknown') as String;
+                final freshness = (data['freshness'] ?? 'Unknown') as String;
+                final thumbPath = frontPath.isNotEmpty ? frontPath : backPath;
+
+                // Extract summary & confidence (optional)
+                final Map<String, dynamic>? savedSummary =
+                    (data['summary'] is Map)
+                        ? Map<String, dynamic>.from(data['summary'])
+                        : null;
+
+                final double? savedConfidence = (data['confidence'] is num)
+                    ? (data['confidence'] as num).toDouble()
+                    : null;
+
+                final resultToPass = savedSummary ??
+                    (savedConfidence != null
+                        ? {'confidence': savedConfidence}
+                        : null);
 
                 return Container(
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 6,
-                    horizontal: 12,
-                  ),
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
                   child: Dismissible(
                     key: Key(doc.id),
                     direction: DismissDirection.endToStart,
@@ -260,16 +270,32 @@ class _HistoryPageState extends State<HistoryPage>
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text("Confirm Deletion"),
-                          content: const Text(
-                            "Delete this scan history entry?",
-                          ),
+                          content:
+                              const Text("Delete this scan history entry?"),
                           actions: [
                             TextButton(
-                              onPressed: () => Navigator.of(context).pop(false),
+                              onPressed: () =>
+                                  Navigator.of(context).pop(false),
                               child: const Text("Cancel"),
                             ),
                             TextButton(
-                              onPressed: () => Navigator.of(context).pop(true),
+                              onPressed: () async {
+                                try {
+                                  await doc.reference.delete();
+                                  if (mounted) {
+                                    Navigator.of(context).pop(true);
+                                  }
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  Navigator.of(context).pop(false);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text('Delete failed: ${e.toString()}'),
+                                    ),
+                                  );
+                                }
+                              },
                               child: const Text("Delete"),
                             ),
                           ],
@@ -305,15 +331,13 @@ class _HistoryPageState extends State<HistoryPage>
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Thumbnail
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child:
-                                (data['localImagePath'] != null &&
-                                    data['localImagePath']
-                                        .toString()
-                                        .isNotEmpty)
+                            child: (thumbPath.isNotEmpty &&
+                                    File(thumbPath).existsSync())
                                 ? Image.file(
-                                    File(data['localImagePath']),
+                                    File(thumbPath),
                                     width: 70,
                                     height: 70,
                                     fit: BoxFit.cover,
@@ -329,22 +353,28 @@ class _HistoryPageState extends State<HistoryPage>
                                   ),
                           ),
                           const SizedBox(width: 12),
+
+                          // Details (NO model chip)
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  data['species'] ?? "Unknown Fish",
+                                  species,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.black,
                                   ),
                                 ),
+
                                 const SizedBox(height: 4),
+
                                 Row(
                                   children: [
-                                    _buildFreshnessBadge(data['freshness']),
+                                    _buildFreshnessBadge(freshness),
                                     const SizedBox(width: 8),
                                     Text(
                                       timeago.format(date, locale: 'en_short'),
@@ -355,15 +385,18 @@ class _HistoryPageState extends State<HistoryPage>
                                     ),
                                   ],
                                 ),
+
                                 const SizedBox(height: 6),
                                 Text(
-                                  "Fish id: ${data['fishId'] ?? 'N/A'}",
+                                  "Fish id: ${doc.id}",
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.black54,
                                   ),
                                 ),
+
                                 const SizedBox(height: 8),
+
                                 ElevatedButton(
                                   style: ElevatedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
@@ -377,11 +410,16 @@ class _HistoryPageState extends State<HistoryPage>
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => FishResultScreen(
-                                          imagePath:
-                                              data['localImagePath'] ?? "",
-                                          species: data['species'] ?? "Unknown",
-                                          freshnessLabel:
-                                              data['freshness'] ?? "Unknown",
+                                          frontImagePath: frontPath.isNotEmpty
+                                              ? frontPath
+                                              : backPath,
+                                          backImagePath: backPath.isNotEmpty
+                                              ? backPath
+                                              : frontPath,
+                                          species: species,
+                                          freshnessLabel: freshness,
+                                          // modelName removed entirely
+                                          result: resultToPass, // pass result if any
                                         ),
                                       ),
                                     );
@@ -455,6 +493,20 @@ class _HistoryPageState extends State<HistoryPage>
     );
   }
 
+  Widget _centerText(String msg) {
+    return Center(
+      child: Text(
+        msg,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   void _openFilterSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -478,6 +530,17 @@ class _HistoryPageState extends State<HistoryPage>
               title: const Text("Oldest"),
               onTap: () => setState(() {
                 _sortBy = "Oldest";
+                Navigator.pop(context);
+              }),
+            ),
+            const Divider(),
+            ListTile(
+              title: const Text("Clear filters"),
+              onTap: () => setState(() {
+                _freshnessFilter = null;
+                _searchQuery = null;
+                _searchController.clear();
+                _showSearch = false;
                 Navigator.pop(context);
               }),
             ),
