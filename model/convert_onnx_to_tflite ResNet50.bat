@@ -112,12 +112,12 @@ if not defined ONNX_PATH (
   pause & exit /b 1
 )
 
-echo [*] Using ONNX: "%ONNX_PATH%"
+rem echo [*] Using ONNX: "%ONNX_PATH%"
 
-if exist "%OUT%" (
-  echo [*] Cleaning old output folder...
-  rmdir /s /q "%OUT%"
-)
+rem if exist "%OUT%" (
+rem   echo [*] Cleaning old output folder...
+rem   rmdir /s /q "%OUT%"
+rem )
 
 echo [*] Converting: "%ONNX_PATH%"
 python -m onnx2tf -i "%ONNX_PATH%" -o "%OUT%" --copy_onnx_input_output_names_to_tflite || (
