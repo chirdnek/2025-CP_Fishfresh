@@ -1,6 +1,11 @@
 # Python / Jupyter
 .venv/
 .tfliteenv/
+.yoloenv/*
+.yoloexport/*
+.yolotf/*
+model/.yoloexport/*
+model/.yolotf/*
 model/.venv/
 __pycache__/
 *.pyc
@@ -8,3 +13,12 @@ __pycache__/
 # datasets
 model/datasets/*
 model/pytorch_imagenet/
+
+# pred_trays
+model/pred_trays/*
+model/assets/*
+model/runs_fishdet/pred_trays/*
+
+wheelhouse/*
+
+model/YOLO_Converter/out_tflite/*
