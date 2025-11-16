@@ -1,0 +1,15 @@
+{
+  "detector_name": "fishdet_yolov8s_oiv7_768",
+  "input_size": 768,
+  "conf_threshold": 0.35,
+  "iou_threshold": 0.6,
+  "max_detections": 400,
+  "tflite_asset": "assets/model/fishdet_fp32_2025-11-17_00-50-15.tflite",
+  "label_map": {
+    "0": "fish"
+  },
+  "export_info": {
+    "tflite_file": "fishdet_fp32_2025-11-17_00-50-15.tflite",
+    "export_time": "Monday, November 17, 2025 at 12:50:15 AM"
+  }
+}
