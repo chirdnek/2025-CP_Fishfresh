@@ -32,13 +32,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       imagePath: 'assets/images/freshness.png',
       title: 'Freshness Score',
       subtitle: 'Get clear results and safety tips right away.',
-      bgColor: Color.fromARGB(255, 52, 159, 208),
+      bgColor: Color.fromARGB(255, 26, 100, 31),
     ),
     OnboardingPage(
       imagePath: 'assets/images/market.png',
       title: 'Track & Learn',
       subtitle: 'Save scans, spot patterns, and make smarter seafood choices.',
-      bgColor: Color.fromARGB(255, 11, 152, 107),
+      bgColor: Color.fromARGB(255, 13, 76, 124),
     ),
     // Final page uses a dark background so the white panel content pops
     OnboardingPage(

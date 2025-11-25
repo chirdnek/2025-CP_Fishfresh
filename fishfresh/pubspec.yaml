@@ -48,8 +48,8 @@ dependencies:
   photo_manager: ^3.7.1
   photo_manager_image_provider: ^2.2.0
   sqflite: ^2.3.0
-  path_provider: ^2.1.2
-  path: ^1.8.3
+  path_provider: ^2.1.4
+  path: ^1.9.0
 
   flutter_local_notifications: ^17.1.2
   smooth_page_indicator: ^1.0.0
@@ -59,12 +59,13 @@ dependencies:
   flutter_spinkit: ^5.2.0  # Optional, for animation effects
   permission_handler: ^11.0.1
   local_auth: ^2.3.0
-  google_generative_ai: ^0.4.6
+  google_generative_ai: 0.4.7
   google_sign_in: ^6.2.1
   sign_in_button: ^3.2.0
   connectivity_plus: ^6.0.2
   internet_connection_checker_plus: ^2.3.0
   timeago: ^3.6.0
+
 
 
 
@@ -112,9 +113,12 @@ flutter:
     - assets/images/avatar4.png
     - assets/images/avatar5.png
     - assets/images/google_logo.png
-    - assets/model/efficientnetv2_Oct_19_4-18_am_float32.tflite
-    - assets/model/mobilenetv2_torchvision_Oct_25_3-08_pm_float32.tflite
-    - assets/model/resnet50Oct_24_5-19_am_float32.tflite
+    - assets/model/resnet50Nov_1_7-02_am_float32.tflite
+    - assets/model/resnet50Nov_5_2-03_am_float32.tflite
+    - assets/model/mobilenetv2_torchvision_Nov_2_3-38am_float32.tflite
+    - assets/model/mobilenetv2_torchvision_Nov_25_2-27_am_float32.tflite
+    - assets/model/fishdet_fp32_2025-11-17_00-50-15.tflite
+    - assets/model/fishdet_config.json
     - assets/model/classes_flat.json
     - assets/images/indian_mackerel.jpg
     - assets/images/yellowfin_tuna.jpg

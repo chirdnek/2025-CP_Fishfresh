@@ -18,7 +18,7 @@ import 'services/storage_service.dart';
 // NEW: network monitor + listener
 import 'services/network_monitor.dart';
 import 'widgets/network_status_listener.dart';
-import 'widgets/network_status_banner.dart';
+import 'widgets/network_listener_banner.dart';
 // GLOBALS
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();

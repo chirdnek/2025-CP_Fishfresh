@@ -2,16 +2,27 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ScanHistoryService {
+  // Ensure we always have a user (anonymous if needed)
+  static Future<User> _ensureUser() async {
+    final auth = FirebaseAuth.instance;
+    User? user = auth.currentUser;
+
+    if (user != null) return user;
+
+    // If not signed in, sign in anonymously
+    final cred = await auth.signInAnonymously();
+    return cred.user!;
+  }
+
   static Future<void> save({
     required String species,
     required String freshness,
     required String frontImagePath,
     String? backImagePath,
     String? modelName,
-    Map<String, dynamic>? summary, // ✅ add summary map
+    Map<String, dynamic>? summary, // summary map from pipeline
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('Not signed in');
+    final user = await _ensureUser(); // ✅ guarantees a user
 
     // Extract top confidence (if present)
     double? confidence;

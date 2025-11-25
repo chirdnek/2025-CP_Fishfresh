@@ -35,6 +35,73 @@ class _HistoryPageState extends State<HistoryPage>
     super.dispose();
   }
 
+  // ───────────────────────── helpers ─────────────────────────
+
+  /// Turn "bigeye_scad" → "Bigeye Scad"
+  String _titleCase(String s) {
+    return s
+        .replaceAll('_', ' ')
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + (w.length > 1 ? w.substring(1) : ''))
+        .join(' ');
+  }
+
+  /// From "fresh__bigeye_scad" or "Fresh Bigeye Scad" → "bigeye scad"
+  String _extractSpecies(String raw) {
+    String v = raw.toLowerCase().trim();
+
+    if (v.contains('__')) {
+      v = v.split('__').last;
+    } else {
+      v = v.replaceAll(RegExp(r'\bnot\s*fresh\b'), '');
+      v = v.replaceAll(RegExp(r'\bfresh\b'), '');
+    }
+
+    v = v.replaceAll('_', ' ').trim();
+    return v;
+  }
+
+  /// Get fish count from summary (if we saved it in Firestore).
+  int? _fishCountFromSummary(Map<String, dynamic>? summary) {
+    if (summary == null) return null;
+
+    if (summary['num_fish'] is int) {
+      return summary['num_fish'] as int;
+    }
+
+    if (summary['per_fish'] is List) {
+      return (summary['per_fish'] as List).length;
+    }
+
+    return null;
+  }
+
+  /// Try to derive "Fresh"/"Not Fresh" from summary for single-fish scans.
+  String _deriveFreshnessFromSummary(Map<String, dynamic>? summary) {
+    if (summary == null) return '';
+
+    // 1) overall_freshness if present
+    final overall = (summary['overall_freshness'] ?? '').toString();
+    if (overall == 'Fresh' || overall == 'Not Fresh') {
+      return overall;
+    }
+
+    // 2) per_fish[0].freshness if we have exactly one fish
+    if (summary['per_fish'] is List) {
+      final List perFish = summary['per_fish'] as List;
+      if (perFish.length == 1 && perFish.first is Map) {
+        final Map first = perFish.first as Map;
+        final String pf = (first['freshness'] ?? '').toString();
+        if (pf == 'Fresh' || pf == 'Not Fresh') {
+          return pf;
+        }
+      }
+    }
+
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -124,36 +191,37 @@ class _HistoryPageState extends State<HistoryPage>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: DropdownButtonFormField<String>(
-  value: (_freshnessFilter?.isNotEmpty ?? false) ? _freshnessFilter : null,
-  isExpanded: true,
-  isDense: true,
-  dropdownColor: Colors.white,
-  icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-  // This is the visible placeholder when nothing is selected
-  hint: const Text(
-    "Select Freshness",
-    style: TextStyle(
-      color: Colors.black,
-      fontWeight: FontWeight.w600,
-      fontSize: 16,
-    ),
-  ),
-  decoration: const InputDecoration(
-    border: InputBorder.none,
-    // keep decoration clean; hint handled above
-  ),
-  style: const TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Colors.black,
-  ),
-  onChanged: (v) => setState(() => _freshnessFilter = v),
-  items: const [
-    DropdownMenuItem(value: "Fresh", child: Text("Fresh")),
-    DropdownMenuItem(value: "Not Fresh", child: Text("Not Fresh")),
-  ],
-)
-
+                          value: (_freshnessFilter?.isNotEmpty ?? false)
+                              ? _freshnessFilter
+                              : null,
+                          isExpanded: true,
+                          isDense: true,
+                          dropdownColor: Colors.white,
+                          icon: const Icon(Icons.arrow_drop_down,
+                              color: Colors.black),
+                          hint: const Text(
+                            "Select Freshness",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                          onChanged: (v) => setState(() => _freshnessFilter = v),
+                          items: const [
+                            DropdownMenuItem(value: "Fresh", child: Text("Fresh")),
+                            DropdownMenuItem(
+                                value: "Not Fresh", child: Text("Not Fresh")),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -203,11 +271,10 @@ class _HistoryPageState extends State<HistoryPage>
             // Apply client-side filters (freshness + search)
             final filteredDocs = snapshot.data!.docs.where((doc) {
               final data = doc.data() as Map<String, dynamic>?;
-
               if (data == null) return false;
 
               final freshness = (data['freshness'] ?? '').toString();
-              final species = (data['species'] ?? '').toString();
+              final speciesRaw = (data['species'] ?? '').toString();
 
               if (_freshnessFilter != null &&
                   _freshnessFilter!.isNotEmpty &&
@@ -216,7 +283,9 @@ class _HistoryPageState extends State<HistoryPage>
               }
               if (_searchQuery != null &&
                   _searchQuery!.isNotEmpty &&
-                  !species.toLowerCase().contains(_searchQuery!.toLowerCase())) {
+                  !speciesRaw
+                      .toLowerCase()
+                      .contains(_searchQuery!.toLowerCase())) {
                 return false;
               }
               return true;
@@ -230,8 +299,8 @@ class _HistoryPageState extends State<HistoryPage>
               itemCount: filteredDocs.length,
               itemBuilder: (ctx, i) {
                 final doc = filteredDocs[i];
-                final data = (doc.data() as Map<String, dynamic>)..removeWhere(
-                    (key, value) => value == null);
+                final data = (doc.data() as Map<String, dynamic>)
+                  ..removeWhere((key, value) => value == null);
 
                 // Timestamp
                 DateTime date = DateTime.now();
@@ -239,14 +308,21 @@ class _HistoryPageState extends State<HistoryPage>
                 if (ts is Timestamp) date = ts.toDate();
 
                 final frontPath = (data['frontImagePath'] ?? '') as String;
-                final backPath =
-                    (data['backImagePath'] as String?) ?? frontPath;
-                final species = (data['species'] ?? 'Unknown') as String;
-                final freshness = (data['freshness'] ?? 'Unknown') as String;
-                final modelName = (data['modelName'] ?? '') as String;
-                final thumbPath = frontPath.isNotEmpty ? frontPath : backPath;
+                final backPath = (data['backImagePath'] as String?) ?? frontPath;
 
-                // ✅ extract summary & confidence
+                final String thumbPath =
+                    frontPath.isNotEmpty ? frontPath : backPath;
+
+                // RAW species + freshness from Firestore
+                final rawSpecies =
+                    (data['species'] ?? 'Unknown').toString(); // e.g. "fresh__bigeye_scad"
+                final String species =
+                    _titleCase(_extractSpecies(rawSpecies)); // "Bigeye Scad"
+
+                String rawFreshness =
+                    (data['freshness'] ?? '').toString(); // "Fresh" | "Not Fresh" | ""
+
+                // Extract summary & confidence (optional)
                 final Map<String, dynamic>? savedSummary =
                     (data['summary'] is Map)
                         ? Map<String, dynamic>.from(data['summary'])
@@ -260,6 +336,22 @@ class _HistoryPageState extends State<HistoryPage>
                     (savedConfidence != null
                         ? {'confidence': savedConfidence}
                         : null);
+
+                // Determine if this is a tray / multiple-fish scan
+                final int? fishCount = _fishCountFromSummary(savedSummary);
+                final bool isMultipleFish =
+                    fishCount != null && fishCount > 1;
+
+                // ── Fix "Unknown" for single-fish by deriving from summary ──
+                String effectiveFreshness = rawFreshness;
+                if (!isMultipleFish &&
+                    (effectiveFreshness.isEmpty ||
+                        effectiveFreshness == 'Unknown')) {
+                  final derived = _deriveFreshnessFromSummary(savedSummary);
+                  if (derived.isNotEmpty) {
+                    effectiveFreshness = derived;
+                  }
+                }
 
                 return Container(
                   margin:
@@ -292,8 +384,8 @@ class _HistoryPageState extends State<HistoryPage>
                                   Navigator.of(context).pop(false);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content:
-                                          Text('Delete failed: ${e.toString()}'),
+                                      content: Text(
+                                          'Delete failed: ${e.toString()}'),
                                     ),
                                   );
                                 }
@@ -361,48 +453,27 @@ class _HistoryPageState extends State<HistoryPage>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        species,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                    ),
-                                    if (modelName.isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 8),
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.06),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                        ),
-                                        child: Text(
-                                          modelName,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.black87,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                                // Species name only
+                                Text(
+                                  species,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
                                 ),
 
                                 const SizedBox(height: 4),
 
                                 Row(
                                   children: [
-                                    _buildFreshnessBadge(freshness),
+                                    // Fresh / Not Fresh / Multiple Fish
+                                    _buildFreshnessBadge(
+                                      effectiveFreshness,
+                                      isMultipleFish: isMultipleFish,
+                                    ),
                                     const SizedBox(width: 8),
                                     Text(
                                       timeago.format(date, locale: 'en_short'),
@@ -438,18 +509,10 @@ class _HistoryPageState extends State<HistoryPage>
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => FishResultScreen(
-                                          frontImagePath: frontPath.isNotEmpty
-                                              ? frontPath
-                                              : backPath,
-                                          backImagePath: backPath.isNotEmpty
-                                              ? backPath
-                                              : frontPath,
-                                          species: species,
-                                          freshnessLabel: freshness,
-                                          modelName: modelName.isNotEmpty
-                                              ? modelName
-                                              : null,
-                                          result: resultToPass, // ✅ pass result
+                                          imagePath: thumbPath,
+                                          species: rawSpecies,
+                                          freshnessLabel: effectiveFreshness,
+                                          result: resultToPass,
                                         ),
                                       ),
                                     );
@@ -494,18 +557,33 @@ class _HistoryPageState extends State<HistoryPage>
     );
   }
 
-  Widget _buildFreshnessBadge(String? freshness) {
+  /// Freshness badge:
+  ///  - Multiple fish  → "Multiple Fish", BLUE
+  ///  - Single fish    → "Fresh" (green) or "Not Fresh" (red)
+  Widget _buildFreshnessBadge(String? freshness,
+      {bool isMultipleFish = false}) {
+    String label;
     Color color;
-    switch (freshness) {
-      case "Fresh":
-        color = Colors.green;
-        break;
-      case "Not Fresh":
-        color = Colors.red;
-        break;
-      default:
-        color = Colors.grey;
+
+    if (isMultipleFish) {
+      label = "Multiple Fish";
+      color = Colors.blue; // 🔵 use blue for tray detections
+    } else {
+      switch (freshness) {
+        case "Fresh":
+          label = "Fresh";
+          color = Colors.green;
+          break;
+        case "Not Fresh":
+          label = "Not Fresh";
+          color = Colors.red;
+          break;
+        default:
+          label = "Unknown";
+          color = Colors.grey;
+      }
     }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -513,7 +591,7 @@ class _HistoryPageState extends State<HistoryPage>
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        freshness ?? "Unknown",
+        label,
         style: TextStyle(
           color: color,
           fontSize: 12,

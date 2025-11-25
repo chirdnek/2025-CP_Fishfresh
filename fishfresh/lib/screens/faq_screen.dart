@@ -1,57 +1,8 @@
-// ignore_for_file: unused_import, sort_child_properties_last, constant_identifier_names, control_flow_in_finally, unnecessary_import, no_leading_underscores_for_local_identifiers
+// ignore_for_file: unused_import, sort_child_properties_last, constant_identifier_names
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart';
-
-// Compile-time envs (empty string if not provided)
-const String GEMINI_API_KEY = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
-const String GEMINI_MODEL   = String.fromEnvironment('GEMINI_MODEL',   defaultValue: '');
- 
-Future<String> checkInternetPermissionAndroid() async {
-  // We can’t query manifest at runtime, but we can hint to user.
-  if (!Platform.isAndroid) return 'n/a';
-  // If network calls fail, we’ll show the real exception below.
-  return 'Manifest should include <uses-permission android:name="android.permission.INTERNET"/>.';
-}
-
-const _kDefaultModelOrder = <String>[
-  'gemini-1.5-flash', // ✅ use a concrete name first
-  'gemini-1.5-pro',
-  // optional older fallback:
-  'gemini-pro',
-];
-GenerativeModel buildGeminiModel({
-  required String apiKey,
-  String? systemPrompt,
-}) {
-final prefer = GEMINI_MODEL;
-  final chosen = (prefer.isNotEmpty ? [prefer] : const <String>[]) + _kDefaultModelOrder;
-String _normalizeModelName(String name) {
-  if (name.endsWith('-latest')) return name.substring(0, name.length - '-latest'.length);
-  return name;
-}
-
-  // Use the first name from the preference list.
-final modelName = _normalizeModelName(chosen.first);
-
-
-
-  return GenerativeModel(
-    model: modelName,
-    apiKey: apiKey,
-    generationConfig: GenerationConfig(
-      temperature: 0.2,
-      topP: 0.9,
-      topK: 32,
-      maxOutputTokens: 256,
-    ),
-    // Use systemInstruction so we don't have to stuff a "system" message in user content.
-    systemInstruction: systemPrompt == null ? null : Content.system(systemPrompt),
-  );
-}
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 class AppColors {
@@ -96,9 +47,9 @@ class AppKB {
         .split(RegExp(r'\s+'))
         .where((t) => t.length > 2 && !_stop.contains(t))
         .toList();
-    if (terms.isEmpty) return <KBDoc>[]; // typed empty list
+    if (terms.isEmpty) return const [];
 
-    final scored = <({KBDoc doc, int score})>[];
+    final scored = <(KBDoc doc, int score)>[];
     for (final d in docs) {
       final title = d.title.toLowerCase();
       final body  = d.text.toLowerCase();
@@ -107,10 +58,10 @@ class AppKB {
         if (title.contains(t)) score += 2; // title weight
         if (body.contains(t))  score += 1;
       }
-      if (score >= 2) scored.add((doc: d, score: score));
+      if (score >= 2) scored.add((d, score));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(k).map((e) => e.doc).toList();
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return scored.take(k).map((e) => e.$1).toList();
   }
 
   void addAll(List<KBDoc> items) => docs.addAll(items);
@@ -125,7 +76,7 @@ List<KBDoc> _parseKBDocs(String raw) {
     if (t.isNotEmpty) out.add(KBDoc(title: 'FishFresh Guide', text: t));
     return out;
   }
-  final parts = raw.split(RegExp(r'(?=^###\s+)', multiLine: true));
+  final parts = raw.split(RegExp(r'(?=^###\s+)'));
   for (final p in parts) {
     final lines = p.trim().split('\n');
     if (lines.isEmpty) continue;
@@ -276,8 +227,8 @@ class _FAQScreenState extends State<FAQScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              const Row(
-                children: [
+              Row(
+                children: const [
                   Icon(Icons.help_outline, color: AppColors.textSecondary),
                   SizedBox(width: 10),
                   Text(
@@ -513,7 +464,6 @@ class _FaqCard extends StatelessWidget {
 // ── Chat Sheet ────────────────────────────────────────────────────────────────
 class _MiniChatSheet extends StatefulWidget {
   const _MiniChatSheet();
-
   @override
   State<_MiniChatSheet> createState() => _MiniChatSheetState();
 }
@@ -533,13 +483,6 @@ class _MiniChatSheetState extends State<_MiniChatSheet> {
   bool _busy = false;
   String? _error;
 
-  // Diagnostics
-  String _diag = '';
-  String get _modelNameEnv => GEMINI_MODEL.isEmpty
-    ? '(auto: gemini-1.5-flash-first)'
-    : GEMINI_MODEL;
-
-
   final _quickReplies = const [
     'How do I take a good scan?',
     'Which species are supported?',
@@ -551,38 +494,22 @@ class _MiniChatSheetState extends State<_MiniChatSheet> {
   @override
   void initState() {
     super.initState();
-   final apiKey = GEMINI_API_KEY;
-final modelEnv = GEMINI_MODEL;
-
+    const apiKey = String.fromEnvironment('GEMINI_API_KEY');
     if (apiKey.isEmpty) {
-      _error = 'GEMINI_API_KEY missing.\nRun with: --dart-define=GEMINI_API_KEY=YOUR_KEY';
+      _error =
+          'Gemini API key is not configured. Launch with --dart-define=GEMINI_API_KEY=YOUR_KEY';
     } else {
-      try {
-        final system = '''
-ROLE: You are the in-app assistant for FishFresh.
-BASELINE:
-$_APP_BASELINE
-INSTRUCTIONS:
-- Prefer the KNOWLEDGE when relevant; otherwise answer using the BASELINE.
-- If the user is vague, ask one short clarifying question.
-- Be concise, use bullets for steps.
-''';
-        _model = buildGeminiModel(apiKey: apiKey, systemPrompt: system);
-      } catch (e) {
-        _error = 'Failed to build Gemini model: $e';
-      }
+      _model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: apiKey,
+        generationConfig: GenerationConfig(
+          temperature: 0.2,
+          topP: 0.9,
+          topK: 32,
+          maxOutputTokens: 256,
+        ),
+      );
     }
-
-    // Compose diagnostics string
-    final sb = StringBuffer();
-    sb.writeln('• Platform: ${kIsWeb ? 'web' : (Platform.isAndroid ? 'android' : Platform.operatingSystem)}');
-    sb.writeln('• API key length: ${apiKey.isEmpty ? 0 : apiKey.length}');
-    sb.writeln('• GEMINI_MODEL: ${modelEnv.isEmpty ? '(not set)' : modelEnv}');
-    sb.writeln('• Using model: $_modelNameEnv');
-    checkInternetPermissionAndroid().then((hint) {
-      if (!mounted) return;
-      setState(() => _diag = sb.toString() + (hint.isEmpty ? '' : '\n• Android Internet: $hint'));
-    });
   }
 
   @override
@@ -593,9 +520,8 @@ INSTRUCTIONS:
   }
 
   void _jumpToBottom() {
-    if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) return;
+      if (!_scroll.hasClients) return;
       _scroll.animateTo(
         _scroll.position.maxScrollExtent,
         duration: const Duration(milliseconds: 180),
@@ -607,61 +533,6 @@ INSTRUCTIONS:
   Future<void> _sendQuick(String q) async {
     _controller.text = q;
     await _send();
-  }
-
-  Future<void> _pingGemini() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-
-    String pretty(String raw) {
-      final r = raw.toLowerCase();
-      if (r.contains('permission_denied') || r.contains('api key not valid')) {
-        return 'PERMISSION_DENIED → API key invalid/missing or not authorized for this project.';
-      }
-      if (r.contains('not_found') && r.contains('model')) {
-        return 'NOT_FOUND → Model not available for this key. Try GEMINI_MODEL=gemini-1.5-flash.';
-      }
-      if (r.contains('resource_exhausted') || r.contains('quota')) {
-        return 'QUOTA → Project quota exhausted.';
-      }
-      if (r.contains('unavailable') || r.contains('network')) {
-        return 'UNAVAILABLE → Network/service issue; check internet on device/emulator.';
-      }
-      return raw;
-    }
-
-    try {
-      if (_model == null) throw Exception(_error ?? 'Model not initialized.');
-      final s = _model!.generateContentStream([Content.text('ping')]);
-
-      setState(() => _messages.add(ChatMessage(fromUser: false, text: '[Diagnostics] Pinging Gemini…')));
-      final idx = _messages.length - 1;
-      final buf = StringBuffer();
-
-      await for (final chunk in s) {
-        final t = chunk.text ?? '';
-        if (t.isEmpty) continue;
-        buf.write(t);
-        if (!mounted) return;
-        setState(() => _messages[idx] = ChatMessage(fromUser: false, text: '[Ping OK]\n$buf'));
-      }
-
-      if (buf.isEmpty && mounted) {
-        setState(() => _messages[idx] = ChatMessage(fromUser: false, text: '[Ping OK] (empty text returned)'));
-      }
-} on GenerativeAIException catch (e) {
-  final msg = '[Gemini] ${e.message}';
-  if (!mounted) return;
-  setState(() => _messages.add(ChatMessage(fromUser: false, text: '[Ping ERR]\n$msg\n\n${pretty(e.message)}')));
-}
- catch (e) {
-      if (!mounted) return;
-      setState(() => _messages.add(ChatMessage(fromUser: false, text: '[Ping ERR]\n$e')));
-    } finally {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      _jumpToBottom();
-    }
   }
 
   Future<void> _send() async {
@@ -681,27 +552,38 @@ INSTRUCTIONS:
             "• How to take a good scan\n"
             "• Accuracy & supported species\n"
             "• Offline use and privacy";
-        if (!mounted) return;
         setState(() => _messages.add(ChatMessage(fromUser: false, text: reply)));
         return;
       }
 
       if (_model == null) throw Exception(_error ?? 'Model not available');
 
-      // Retrieve KB to ground responses (optional)
+      // Retrieve KB
       final top = _kb.retrieve(text, k: 3);
       final kbContext =
           top.isEmpty ? 'None' : top.map((d) => '### ${d.title}\n${d.text}').join('\n\n');
 
+      final system = '''
+ROLE: You are the in-app assistant for FishFresh.
+BASELINE:
+$_APP_BASELINE
+
+KNOWLEDGE (optional):
+$kbContext
+
+INSTRUCTIONS:
+- Prefer the KNOWLEDGE when relevant; otherwise answer using the BASELINE.
+- If the user is vague, ask one short clarifying question.
+- Be concise, use bullets for steps.
+''';
+
       // Stream the response so it "types"
       final stream = _model!.generateContentStream([
-        // Provide the KB as the first user turn so the model can cite it implicitly.
-        Content.text('You may use this knowledge if relevant:\n$kbContext'),
-        Content.text(text),
+        Content.text(system),
+        Content.text('User: $text'),
       ]);
 
       // placeholder bot message
-      if (!mounted) return;
       setState(() => _messages.add(ChatMessage(fromUser: false, text: '')));
       final idx = _messages.length - 1;
 
@@ -710,20 +592,12 @@ INSTRUCTIONS:
         final piece = chunk.text ?? '';
         if (piece.isEmpty) continue;
         buffer.write(piece);
-        if (!mounted) return;
         setState(() => _messages[idx] = ChatMessage(fromUser: false, text: buffer.toString()));
         _jumpToBottom();
       }
- } on GenerativeAIException catch (e) {
-  final msg = '[Gemini] ${e.message}';
-  if (!mounted) return;
-  setState(() => _messages.add(ChatMessage(fromUser: false, text: msg)));
-}
- catch (e) {
-      if (!mounted) return;
+    } catch (e) {
       setState(() => _messages.add(ChatMessage(fromUser: false, text: 'Error: $e')));
     } finally {
-      if (!mounted) return;
       setState(() => _busy = false);
       _jumpToBottom();
     }
@@ -778,38 +652,6 @@ INSTRUCTIONS:
                   child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
                 ),
 
-              // Diagnostics panel (visible when model attempted to init)
-              if (_error == null && _diag.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Diagnostics',
-                          style: TextStyle(
-                              color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 6),
-                      Text(_diag,
-                          style: const TextStyle(color: AppColors.textSecondary, height: 1.3)),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _busy ? null : _pingGemini,
-                          child: const Text('Ping Gemini'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
               // Messages
               Expanded(
                 child: ListView.builder(
@@ -820,7 +662,7 @@ INSTRUCTIONS:
                     final m = _messages[i];
                     final align = m.fromUser ? Alignment.centerRight : Alignment.centerLeft;
                     final bg = m.fromUser ? AppColors.bubbleUser : AppColors.bubbleBot;
-                    const txtColor = Colors.white;
+                    final txtColor = Colors.white;
 
                     return Align(
                       alignment: align,
@@ -837,7 +679,7 @@ INSTRUCTIONS:
                             color: m.fromUser ? AppColors.accent : AppColors.divider,
                           ),
                         ),
-                        child: Text(m.text, style: const TextStyle(color: txtColor, height: 1.4)),
+                        child: Text(m.text, style: TextStyle(color: txtColor, height: 1.4)),
                       ),
                     );
                   },

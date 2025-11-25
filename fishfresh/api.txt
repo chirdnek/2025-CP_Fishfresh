@@ -1,9 +1,3 @@
-flutter run --dart-define=GEMINI_API_KEY="AIzaSyAcrpPodjhttpAnUVMfYt8tB3WMV-5an8Y"
+flutter run --dart-define=GEMINI_API_KEY="AIzaSyDSh38g7x2eF2_DPrSVcEWJ85utqXqxbt4"`
 
 flutter build apk --dart-define=GEMINI_API_KEY="AIzaSyDSh38g7x2eF2_DPrSVcEWJ85utqXqxbt4"`
-
-flutter run --dart-define=GEMINI_API_KEY=AIzaSyAcrpPodjhttpAnUVMfYt8tB3WMV-5an8Y
-
-flutter run \
-  --dart-define=GEMINI_API_KEY=YAIzaSyAcrpPodjhttpAnUVMfYt8tB3WMV-5an8Y \
-  --dart-define=GEMINI_MODEL=gemini-1.5-flash
