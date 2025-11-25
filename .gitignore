@@ -22,3 +22,9 @@ model/runs_fishdet/pred_trays/*
 wheelhouse/*
 
 model/YOLO_Converter/out_tflite/*
+
+assets/*
+old_assets/labels/*
+
+assets/*
+old_assets/labels/*
