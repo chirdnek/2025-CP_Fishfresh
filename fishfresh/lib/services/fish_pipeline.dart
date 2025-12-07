@@ -1,19 +1,21 @@
 // lib/services/fish_pipeline.dart
-// YOLOv8 TFLite + MobileNet pipeline
-// ignore_for_file: avoid_print, constant_identifier_names, no_leading_underscores_for_local_identifiers
+// YOLOv8 TFLite + ResNet pipeline
+// ignore_for_file: avoid_print, constant_identifier_names, no_leading_underscores_for_local_identifiers, unnecessary_import, unused_element
 
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import 'fish_detector.dart';
 import 'fish_classifier.dart';
 
-/// Two modes:
-///  - single : expect one fish; aggressive NMS + extra filters
-///  - tray   : many fish; keep per-fish boxes, drop “whole row/tray” boxes
-enum ScanMode { single, tray }
+/// Modes:
+///  - auto   : if YOLO finds >=2 boxes → tray; else → single crop
+///  - single : always single-fish crop (YOLO bbox if available, else full-frame)
+///  - tray   : always multi-fish YOLO + crop + ResNet per fish
+enum ScanMode { auto, single, tray }
 
 class FishPipeline {
   FishPipeline._private();
@@ -46,7 +48,7 @@ class FishPipeline {
   }
 
   // ---------------------------------------------------------------------------
-  // NMS-style suppression (keep best boxes, drop overlaps)
+  // NMS-style suppression (keep best boxes, drop strong overlaps)
   // ---------------------------------------------------------------------------
   List<FishDetection> _nms(
     List<FishDetection> dets, {
@@ -71,33 +73,36 @@ class FishPipeline {
   }
 
   // ---------------------------------------------------------------------------
-  // Extra filters
+  // Aspect helpers
   // ---------------------------------------------------------------------------
 
-  /// Aspect check for single-fish shots (orientation agnostic).
-  /// We only care that the fish is noticeably longer than tall,
-  /// whether it's vertical or horizontal.
-  bool _validAspectSingle(Rect r) {
+  /// Generic aspect check: orientation-agnostic
+  /// (ratio = longer side / shorter side).
+  bool _validAspect(
+    Rect r, {
+    required double minRatio,
+    required double maxRatio,
+  }) {
     final double w = r.width;
     final double h = r.height;
     if (w <= 0 || h <= 0) return false;
 
-    // Make orientation-agnostic: length / thickness
     final double longSide = w >= h ? w : h;
     final double shortSide = w >= h ? h : w;
     final double ratio = longSide / shortSide;
 
-    // a single fish should be at least ~1.5x longer than thick, but not crazy
-    return ratio >= 1.5 && ratio <= 8.0;
+    return ratio >= minRatio && ratio <= maxRatio;
   }
 
-  /// SINGLE-FISH FILTER (only affects ScanMode.single)
+  // ---------------------------------------------------------------------------
+  // SINGLE-FISH FILTER (currently not used, but kept for future tuning)
+  // ---------------------------------------------------------------------------
+
   List<FishDetection> _filterSingle(
     List<FishDetection> dets,
     double imgW,
     double imgH, {
-    // allow single fish to occupy more of the frame
-    double maxAreaFrac = 0.85, // was 0.60
+    double maxAreaFrac = 0.85,
     double minAreaFrac = 0.01,
   }) {
     final double imageArea = imgW * imgH;
@@ -106,77 +111,52 @@ class FishPipeline {
       final Rect b = d.box;
       final double boxArea = b.width * b.height;
 
-      // too tiny or too huge → drop
       if (boxArea > imageArea * maxAreaFrac) return false;
       if (boxArea < imageArea * minAreaFrac) return false;
 
-      // wrong shape → drop
-      if (!_validAspectSingle(b)) return false;
+      if (!_validAspect(b, minRatio: 1.5, maxRatio: 8.0)) return false;
 
       return true;
     }).toList();
   }
 
   // ---------------------------------------------------------------------------
-  // SMART TRAY FILTER (unchanged)
+  // TRAY FILTER (loose – we want one box per fish, not per tray/row)
   // ---------------------------------------------------------------------------
 
   List<FishDetection> _filterTray(
     List<FishDetection> dets,
     double imgW,
     double imgH, {
-    double maxAreaFrac = 0.35,
+    double maxAreaFrac = 0.45,
     double minAreaFrac = 0.010,
   }) {
     if (dets.isEmpty) return [];
 
     final double imageArea = imgW * imgH;
-
-    final widths = <double>[];
-    final areas = <double>[];
-
-    for (final d in dets) {
-      final b = d.box;
-      final a = b.width * b.height;
-      widths.add(b.width);
-      areas.add(a);
-    }
-
-    widths.sort();
-    areas.sort();
-
-    double _median(List<double> v) {
-      if (v.isEmpty) return 0;
-      final n = v.length;
-      if (n.isOdd) return v[n ~/ 2];
-      return (v[n ~/ 2 - 1] + v[n ~/ 2]) / 2.0;
-    }
-
-    final double medianW = _median(widths);
-    final double medianArea = _median(areas);
-
-    final bool useRelativeHeuristics =
-        dets.length >= 3 && medianW > 0 && medianArea > 0;
-
     final kept = <FishDetection>[];
 
     for (final d in dets) {
       final Rect b = d.box;
       final double boxArea = b.width * b.height;
-
       final double areaFrac = boxArea / imageArea;
       final double widthFrac = b.width / imgW;
+      final double heightFrac = b.height / imgH;
 
       if (areaFrac < minAreaFrac) continue;
       if (areaFrac > maxAreaFrac) continue;
 
-      if (useRelativeHeuristics) {
-        final bool muchWider = b.width > medianW * 1.6;
-        final bool muchBigger = boxArea > medianArea * 1.6;
-        if (muchWider && muchBigger) continue;
+      if (!_validAspect(b, minRatio: 1.3, maxRatio: 6.5)) continue;
+
+      // Drop "row" boxes (very wide, not tall)
+      if (widthFrac > 0.75 && heightFrac < 0.40) {
+        continue;
       }
 
-      if (widthFrac > 0.85 && areaFrac > 0.12) continue;
+      // Drop near-whole-tray boxes
+      if (areaFrac > 0.30 && (widthFrac > 0.85 || heightFrac > 0.85)) {
+        continue;
+      }
 
       kept.add(d);
     }
@@ -185,11 +165,12 @@ class FishPipeline {
   }
 
   // ---------------------------------------------------------------------------
-  // Expand bounding box slightly for cropping
+  // Expand bounding box slightly for UI (pretty boxes)
   // ---------------------------------------------------------------------------
-  Rect _expand(Rect r, double W, double H) {
+  Rect _expandForUi(Rect r, double W, double H) {
+    // small margin → more "normal" boxes
     const double marginFracX = 0.03;
-    const double marginFracY = 0.06;
+    const double marginFracY = 0.05;
 
     final double ex = r.width * marginFracX;
     final double ey = r.height * marginFracY;
@@ -206,11 +187,77 @@ class FishPipeline {
   }
 
   // ---------------------------------------------------------------------------
+  // Expand bounding box for crops (more context)
+  // ---------------------------------------------------------------------------
+  Rect _expandForCrop(Rect r, double W, double H) {
+    const double marginFracX = 0.08;
+    const double marginFracY = 0.08;
+
+    final double ex = r.width * marginFracX;
+    final double ey = r.height * marginFracY;
+
+    double left = (r.left - ex).clamp(0.0, W);
+    double top = (r.top - ey).clamp(0.0, H);
+    double right = (r.right + ex).clamp(0.0, W);
+    double bottom = (r.bottom + ey).clamp(0.0, H);
+
+    if (right <= left) right = left + 1;
+    if (bottom <= top) bottom = top + 1;
+
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Make a square crop around a bbox (for classifier only)
+  // ---------------------------------------------------------------------------
+  Rect _squareAround(
+    Rect r,
+    double W,
+    double H, {
+    double scale = 1.20,
+  }) {
+    final double cx = (r.left + r.right) / 2.0;
+    final double cy = (r.top + r.bottom) / 2.0;
+
+    final double baseSide = r.width >= r.height ? r.width : r.height;
+    double side = baseSide * scale;
+
+    double left = cx - side / 2.0;
+    double top = cy - side / 2.0;
+    double right = cx + side / 2.0;
+    double bottom = cy + side / 2.0;
+
+    if (left < 0) {
+      right -= left;
+      left = 0;
+    }
+    if (top < 0) {
+      bottom -= top;
+      top = 0;
+    }
+    if (right > W) {
+      final overflow = right - W;
+      left -= overflow;
+      right = W;
+    }
+    if (bottom > H) {
+      final overflow = bottom - H;
+      top -= overflow;
+      bottom = H;
+    }
+
+    if (right <= left) right = left + 1;
+    if (bottom <= top) bottom = top + 1;
+
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  // ---------------------------------------------------------------------------
   // Main pipeline
   // ---------------------------------------------------------------------------
   Future<Map<String, dynamic>> runOnBytes(
     Uint8List bytes, {
-    ScanMode mode = ScanMode.single,
+    ScanMode mode = ScanMode.auto,
   }) async {
     await ensureInited();
 
@@ -227,57 +274,238 @@ class FishPipeline {
     final rawDetections = await FishDetector.instance.detect(bytes);
     sw.stop();
 
-    if (rawDetections.isEmpty) {
-      return {
-        'latency_ms': sw.elapsedMilliseconds,
-        'per_fish': <Map<String, dynamic>>[],
-        'overall_species': '',
-        'overall_freshness': '',
-        'scan_mode': mode.name,
-      };
-    }
-
-    final bool trayMode = (mode == ScanMode.tray);
-
-    // 2) NMS
-    var merged = _nms(
-      rawDetections,
-      iouThresh: trayMode ? 0.45 : 0.8,
+    debugPrint(
+      'FishPipeline: raw YOLO detections = ${rawDetections.length} (requested mode=${mode.name})',
     );
 
-    // 3) Filtering
-    if (trayMode) {
-      merged = _filterTray(merged, imgW, imgH);
-    } else {
-      merged = _filterSingle(merged, imgW, imgH);
-    }
+    // ---- If YOLO completely fails, fall back to full-frame ResNet (single) ----
+    if (rawDetections.isEmpty && mode != ScanMode.tray) {
+      final cls = await FishClassifier.instance.classify(fullImg);
+      final species = cls.label.species;
+      final freshness = cls.label.freshness;
+      final clsConf = cls.confidence;
 
-    if (merged.isEmpty) {
       return {
         'latency_ms': sw.elapsedMilliseconds,
-        'per_fish': <Map<String, dynamic>>[],
-        'overall_species': '',
-        'overall_freshness': '',
-        'scan_mode': mode.name,
+        'per_fish': [
+          {
+            'fish_box_id': 1,
+            'box_norm': {
+              'left': 0.0,
+              'top': 0.0,
+              'right': 1.0,
+              'bottom': 1.0,
+            },
+            'species': species,
+            'freshness': freshness,
+            'cls_conf': clsConf,
+            'det_score': 1.0,
+          }
+        ],
+        'overall_species': species,
+        'overall_freshness': freshness,
+        'scan_mode': 'single-no-yolo',
       };
     }
 
-    // 4) Single mode: keep only highest-score
-    if (!trayMode && merged.length > 1) {
-      merged.sort((a, b) => b.score.compareTo(a.score));
-      merged = [merged.first];
+    // 2) NMS
+    var merged = _nms(rawDetections, iouThresh: 0.45);
+    debugPrint('FishPipeline: after NMS = ${merged.length}');
+
+    // Sort by score and keep bestDet for UI / single mode
+    merged.sort((a, b) => b.score.compareTo(a.score));
+    final bestDet = merged.isNotEmpty ? merged.first : null;
+
+    // 3) Tray candidates (for multi-fish)
+    var trayCandidates =
+        _filterTray(List<FishDetection>.from(merged), imgW, imgH);
+    debugPrint(
+      'FishPipeline: tray candidates after filter = ${trayCandidates.length}',
+    );
+
+    // -----------------------------------------------------------------------
+    // Decide mode
+    // -----------------------------------------------------------------------
+    bool trayMode;
+    if (mode == ScanMode.tray) {
+      trayMode = true;
+    } else if (mode == ScanMode.single) {
+      trayMode = false;
+    } else {
+      trayMode = trayCandidates.length >= 2;
     }
 
-    // 5) Crop + classify
+    final resolvedMode = trayMode ? 'tray' : 'single';
+    debugPrint('FishPipeline: effective mode = $resolvedMode');
+
+    // -----------------------------------------------------------------------
+    // SINGLE / CROP PATH
+    // -----------------------------------------------------------------------
+    if (!trayMode) {
+      Rect uiRect;
+      Rect cropRect;
+      img.Image cropImage;
+
+      if (bestDet != null) {
+        // nice-looking UI box (rectangular, small margin)
+        uiRect = _expandForUi(bestDet.box, imgW, imgH);
+
+        // bigger square for classifier
+        final Rect expandedForCrop =
+            _expandForCrop(bestDet.box, imgW, imgH);
+        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+
+        final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+        final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+        final int right =
+            cropRect.right.ceil().clamp(left + 1, fullImg.width);
+        final int bottom =
+            cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+
+        final int w = (right - left).clamp(1, fullImg.width);
+        final int h = (bottom - top).clamp(1, fullImg.height);
+
+        cropImage = img.copyCrop(
+          fullImg,
+          x: left,
+          y: top,
+          width: w,
+          height: h,
+        );
+      } else {
+        uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
+        cropRect = uiRect;
+        cropImage = fullImg;
+      }
+
+      final cls = await FishClassifier.instance.classify(cropImage);
+      final species = cls.label.species;
+      final freshness = cls.label.freshness;
+      final clsConf = cls.confidence;
+
+      final perFish = [
+        {
+          'fish_box_id': 1,
+          'box_norm': {
+            'left': uiRect.left / imgW,
+            'top': uiRect.top / imgH,
+            'right': uiRect.right / imgW,
+            'bottom': uiRect.bottom / imgH,
+          },
+          'species': species,
+          'freshness': freshness,
+          'cls_conf': clsConf,
+          'det_score': bestDet?.score ?? 1.0,
+        }
+      ];
+
+      return {
+        'latency_ms': sw.elapsedMilliseconds,
+        'per_fish': perFish,
+        'overall_species': species,
+        'overall_freshness': freshness,
+        'scan_mode': resolvedMode,
+      };
+    }
+
+    // -----------------------------------------------------------------------
+    // TRAY / MULTI-FISH PATH
+    // -----------------------------------------------------------------------
+
+    if (trayCandidates.isEmpty) {
+      // Safety: fall back to single behaviour
+      Rect uiRect;
+      Rect cropRect;
+      img.Image cropImage;
+
+      if (bestDet != null) {
+        uiRect = _expandForUi(bestDet.box, imgW, imgH);
+        final Rect expandedForCrop =
+            _expandForCrop(bestDet.box, imgW, imgH);
+        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+
+        final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+        final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+        final int right =
+            cropRect.right.ceil().clamp(left + 1, fullImg.width);
+        final int bottom =
+            cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+
+        final int w = (right - left).clamp(1, fullImg.width);
+        final int h = (bottom - top).clamp(1, fullImg.height);
+
+        cropImage = img.copyCrop(
+          fullImg,
+          x: left,
+          y: top,
+          width: w,
+          height: h,
+        );
+      } else {
+        uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
+        cropRect = uiRect;
+        cropImage = fullImg;
+      }
+
+      final cls = await FishClassifier.instance.classify(cropImage);
+      final species = cls.label.species;
+      final freshness = cls.label.freshness;
+      final clsConf = cls.confidence;
+
+      final perFish = [
+        {
+          'fish_box_id': 1,
+          'box_norm': {
+            'left': uiRect.left / imgW,
+            'top': uiRect.top / imgH,
+            'right': uiRect.right / imgW,
+            'bottom': uiRect.bottom / imgH,
+          },
+          'species': species,
+          'freshness': freshness,
+          'cls_conf': clsConf,
+          'det_score': bestDet?.score ?? 1.0,
+        }
+      ];
+
+      return {
+        'latency_ms': sw.elapsedMilliseconds,
+        'per_fish': perFish,
+        'overall_species': species,
+        'overall_freshness': freshness,
+        'scan_mode': 'single-fallback',
+      };
+    }
+
+    // Optional: cap number of tray detections
+    const int maxTrayDetections = 8;
+    if (trayCandidates.length > maxTrayDetections) {
+      trayCandidates.sort((a, b) => b.score.compareTo(a.score));
+      trayCandidates = trayCandidates.sublist(0, maxTrayDetections);
+    }
+
+    // 4) Crop + classify per fish (tray mode)
     final perFish = <Map<String, dynamic>>[];
+    int boxCounter = 0;
 
-    for (final d in merged) {
-      final Rect e = _expand(d.box, imgW, imgH);
+    for (final d in trayCandidates) {
+      boxCounter++;
 
-      final int left = e.left.floor().clamp(0, fullImg.width - 1);
-      final int top = e.top.floor().clamp(0, fullImg.height - 1);
-      final int right = e.right.ceil().clamp(left + 1, fullImg.width);
-      final int bottom = e.bottom.ceil().clamp(top + 1, fullImg.height);
+      // YOLO box → pretty UI rect
+      final Rect uiRect = _expandForUi(d.box, imgW, imgH);
+
+      // For classifier: slightly bigger square around expanded crop region
+      final Rect expandedForCrop =
+          _expandForCrop(d.box, imgW, imgH);
+      final Rect cropRect =
+          _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+
+      final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+      final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+      final int right =
+          cropRect.right.ceil().clamp(left + 1, fullImg.width);
+      final int bottom =
+          cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
 
       final int w = (right - left).clamp(1, fullImg.width);
       final int h = (bottom - top).clamp(1, fullImg.height);
@@ -292,32 +520,87 @@ class FishPipeline {
 
       final cls = await FishClassifier.instance.classify(crop);
 
+      final String species = cls.label.species;
+      final String freshness = cls.label.freshness;
+      final double clsConf = cls.confidence;
+      final double detScore = d.score;
+
       perFish.add({
+        'fish_box_id': boxCounter,
         'box_norm': {
-          'left': e.left / imgW,
-          'top': e.top / imgH,
-          'right': e.right / imgW,
-          'bottom': e.bottom / imgH,
+          'left': uiRect.left / imgW,
+          'top': uiRect.top / imgH,
+          'right': uiRect.right / imgW,
+          'bottom': uiRect.bottom / imgH,
         },
-        'species': cls.label.species,
-        'freshness': cls.label.freshness,
-        'cls_conf': cls.confidence,
-        'det_score': d.score,
+        'species': species,
+        'freshness': freshness,
+        'cls_conf': clsConf,
+        'det_score': detScore,
       });
     }
 
-    // 6) overall label
-    perFish.sort(
-      (a, b) => (b['cls_conf'] as double).compareTo(a['cls_conf'] as double),
-    );
-    final top = perFish.first;
+    // -----------------------------------------------------------------------
+    // 5) TRAY-LEVEL SUMMARY (no species snapping)
+    // -----------------------------------------------------------------------
+    final Map<String, int> speciesCounts = {};
+    for (final f in perFish) {
+      final s = (f['species'] ?? '') as String;
+      if (s.isEmpty) continue;
+      speciesCounts[s] = (speciesCounts[s] ?? 0) + 1;
+    }
+
+    String overallSpecies;
+    String overallFreshness;
+
+    if (speciesCounts.isNotEmpty) {
+      final majorityEntry = speciesCounts.entries.reduce(
+        (a, b) => a.value >= b.value ? a : b,
+      );
+      final String majoritySpecies = majorityEntry.key;
+
+      overallSpecies = majoritySpecies;
+
+      double freshSum = 0.0;
+      double notFreshSum = 0.0;
+
+      for (final f in perFish) {
+        final s = (f['species'] ?? '') as String;
+        if (s != majoritySpecies) continue;
+
+        final fr = ((f['freshness'] ?? '') as String).toLowerCase();
+        final double c = (f['cls_conf'] ?? 0.0) as double;
+
+        if (fr == 'fresh') {
+          freshSum += c;
+        } else if (fr == 'not fresh') {
+          notFreshSum += c;
+        }
+      }
+
+      if (freshSum == 0.0 && notFreshSum == 0.0) {
+        overallFreshness = 'Unknown';
+      } else {
+        overallFreshness =
+            (freshSum >= notFreshSum) ? 'Fresh' : 'Not Fresh';
+      }
+    } else {
+      Map<String, dynamic> top = perFish.first;
+      for (final f in perFish) {
+        if ((f['cls_conf'] as double) > (top['cls_conf'] as double)) {
+          top = f;
+        }
+      }
+      overallSpecies = (top['species'] ?? 'Unknown').toString();
+      overallFreshness = (top['freshness'] ?? 'Unknown').toString();
+    }
 
     return {
       'latency_ms': sw.elapsedMilliseconds,
       'per_fish': perFish,
-      'overall_species': top['species'],
-      'overall_freshness': top['freshness'],
-      'scan_mode': mode.name,
+      'overall_species': overallSpecies,
+      'overall_freshness': overallFreshness,
+      'scan_mode': resolvedMode,
     };
   }
 }

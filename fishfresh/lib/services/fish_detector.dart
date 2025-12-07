@@ -273,7 +273,7 @@ class FishDetector {
 
     return build(0, shape);
   }
-  List<FishDetection> _parseYolo(Object rawOutput, int origW, int origH) {
+     List<FishDetection> _parseYolo(Object rawOutput, int origW, int origH) {
     if (rawOutput is! List) {
       debugPrint(
           'FishDetector: rawOutput is not a List (got ${rawOutput.runtimeType}).');
@@ -286,12 +286,12 @@ class FishDetector {
       return [];
     }
 
-    // Expect [1, 605, 12096] or [605, 12096]
+    // Expect [1, C, N] or [C, N]
     List channelsList;
     if (out.length == 1 && out.first is List) {
-      channelsList = out.first as List; // [605][12096]
+      channelsList = out.first as List; // e.g. [C][N]
     } else {
-      channelsList = out; // already [605][12096]
+      channelsList = out; // already [C][N]
     }
 
     if (channelsList.isEmpty || channelsList.first is! List) {
@@ -300,8 +300,8 @@ class FishDetector {
     }
 
     final List<List> ch = channelsList.cast<List>();
-    final int channels = ch.length;       // 605
-    final int numBoxes = ch.first.length; // 12096
+    final int channels = ch.length;
+    final int numBoxes = ch.first.length;
 
     debugPrint('FishDetector: channels=$channels, numBoxes=$numBoxes');
 
@@ -310,15 +310,19 @@ class FishDetector {
       return [];
     }
 
+    // Layout we assume (same as your old working version):
+    // ch[0] = x, ch[1] = y, ch[2] = w, ch[3] = h (all normalized 0..1)
+    // ch[4] = obj or some extra value (we IGNORE this)
+    // ch[5..] = per-class confidence scores (already "good" final scores)
     const int clsOffset = 5;
-    final int numClasses = channels - clsOffset; // ~600
+    final int numClasses = channels - clsOffset;
 
     // Log one box for sanity
     if (numBoxes > 0) {
-      final j = 0;
+      const int j = 0;
       debugPrint(
         'FishDetector: sample box[0] '
-        'x=${ch[0][j]}, y=${ch[1][j]}, w=${ch[2][j]}, h=${ch[3][j]}, obj=${ch[4][j]}',
+        'x=${ch[0][j]}, y=${ch[1][j]}, w=${ch[2][j]}, h=${ch[3][j]}, raw4=${ch[4][j]}',
       );
     }
 
@@ -326,7 +330,7 @@ class FishDetector {
     double globalMaxCls = 0.0;
 
     for (int j = 0; j < numBoxes; j++) {
-      // coords are NORMALIZED 0..1 → scale to original image
+      // Normalized coords 0..1 → scale to original image
       final double xNorm = (ch[0][j] as num).toDouble();
       final double yNorm = (ch[1][j] as num).toDouble();
       final double wNorm = (ch[2][j] as num).toDouble();
@@ -342,24 +346,26 @@ class FishDetector {
       final double w  = wNorm * origW;
       final double h  = hNorm * origH;
 
-      // max class score
+      // max class score (we treat this as the final confidence)
       double bestCls = 0.0;
       int bestClassIdx = 0;
       for (int c = 0; c < numClasses; c++) {
-        final s = (ch[clsOffset + c][j] as num).toDouble();
+        final double s = (ch[clsOffset + c][j] as num).toDouble();
         if (s > bestCls) {
           bestCls = s;
           bestClassIdx = c;
         }
       }
 
-      // track global max BEFORE threshold, for debugging
-      if (bestCls > globalMaxCls) {
-        globalMaxCls = bestCls;
-      }
+      if (!bestCls.isFinite) bestCls = 0.0;
 
-      final double conf = bestCls;
-      if (conf < _config.confThreshold) continue;
+      // Track global max for debugging
+      if (bestCls > globalMaxCls) globalMaxCls = bestCls;
+
+      // THRESHOLD: use bestCls directly vs confThreshold from config
+      if (bestCls < _config.confThreshold) {
+        continue;
+      }
 
       // convert to box corners + clamp inside image
       double left = xc - w / 2.0;
@@ -377,8 +383,8 @@ class FishDetector {
       results.add(
         FishDetection(
           box: Rect.fromLTRB(left, top, right, bottom),
-          score: conf,
-          classId: bestClassIdx, // not really used, but fine
+          score: bestCls,      // use class score as detection confidence
+          classId: bestClassIdx,
         ),
       );
     }

@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // for debugPrint
 import 'package:photo_manager/photo_manager.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
@@ -40,9 +41,6 @@ class _FishScanCameraState extends State<FishScanCamera>
 
   // === Models (through FishPipeline) ===
   bool _modelReady = false;
-
-  // === Scan mode: single fish vs tray ===
-  bool _isTrayMode = false; // false = Single Fish, true = Tray
 
   // === Quality thresholds (still-image QA) ===
   static const double _BLUR_THRESHOLD = 100.0; // tune 80–120 per device
@@ -129,9 +127,7 @@ class _FishScanCameraState extends State<FishScanCamera>
           _controller = controller;
           _currentCameraIndex = index;
           _isReady = true;
-          _hint = _isTrayMode
-              ? 'Point camera at multiple fish on a tray'
-              : 'Point camera at a single fish';
+          _hint = 'Point camera and hold steady';
         });
       } else {
         await controller.dispose();
@@ -220,27 +216,34 @@ class _FishScanCameraState extends State<FishScanCamera>
 
       final file = await _controller!.takePicture();
 
+      // 1) Keep original for UI
+      final String originalPath = file.path;
+
+      // 2) Optionally save to gallery
       try {
-        await PhotoManager.editor.saveImageWithPath(file.path);
+        await PhotoManager.editor.saveImageWithPath(originalPath);
       } catch (_) {}
 
-      final processedPath = await _qaAndPreprocess(file.path);
+      // 3) Preprocess copy for the model
+      final processedPath = await _qaAndPreprocess(originalPath);
       if (processedPath == null) {
         if (mounted && !_disposed) {
-          _hint = _isTrayMode
-              ? 'Point camera at multiple fish on a tray'
-              : 'Point camera at a single fish';
+          _hint = 'Point camera and hold steady';
           setState(() {});
         }
         return;
       }
 
-      await _runDetectorAndModel(processedPath);
+      // 4) Run AI using processed image, but display original
+      await _runDetectorAndModel(
+        processedPath: processedPath,
+        displayPath: originalPath,
+      );
     } catch (e) {
-      debugPrint('❌ Capture failed: $e');
-      if (mounted) {
+      debugPrint('❌ _capturePictureAfterScan error: $e');
+      if (mounted && !_disposed) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Capture failed: $e')),
+          SnackBar(content: Text('Capture error: $e')),
         );
       }
     }
@@ -250,7 +253,10 @@ class _FishScanCameraState extends State<FishScanCamera>
   /// 1) Run FishPipeline (YOLO + MobileNet for every detected fish)
   /// 2) Save history
   /// 3) Navigate to FishResultScreen with full result map
-  Future<void> _runDetectorAndModel(String processedPath) async {
+  Future<void> _runDetectorAndModel({
+    required String processedPath,
+    required String displayPath, // original for UI
+  }) async {
     if (!mounted || _disposed) return;
 
     setState(() {
@@ -259,15 +265,26 @@ class _FishScanCameraState extends State<FishScanCamera>
     });
 
     try {
-      // 1) Read bytes of the processed image
+      // 1) Read bytes of the **processed** image for the models
       final file = File(processedPath);
       final Uint8List imageBytes = await file.readAsBytes();
 
-      // 2) Run the full pipeline (YOLO + MobileNet on each detection)
+      // 2) Run full pipeline in AUTO mode (pipeline decides single vs tray)
       final pipelineResult = await FishPipeline.instance.runOnBytes(
         imageBytes,
-        mode: _isTrayMode ? ScanMode.tray : ScanMode.single,
+        mode: ScanMode.auto,
       );
+
+      // Update hint based on resolved scan_mode (from pipeline)
+      final resolvedMode =
+          (pipelineResult['scan_mode'] ?? 'single').toString().toLowerCase();
+      if (mounted && !_disposed) {
+        setState(() {
+          _hint = resolvedMode == 'tray'
+              ? 'Detected multiple fish in frame'
+              : 'Detected a single fish in frame';
+        });
+      }
 
       final perFish =
           (pipelineResult['per_fish'] as List<dynamic>?) ?? const [];
@@ -279,26 +296,24 @@ class _FishScanCameraState extends State<FishScanCamera>
             ),
           );
           setState(() {
-            _hint = _isTrayMode
-                ? 'No fish detected — align tray of fish fully in the frame'
-                : 'No fish detected — align a single fish in the frame';
+            _hint = 'No fish detected — adjust framing and retake';
           });
         }
         return;
       }
 
-      // 3) Extract overall species/freshness for the big labels
+      // 3) Extract overall species/freshness
       final String species =
           (pipelineResult['overall_species'] ?? 'Unknown').toString();
       final String freshness =
           (pipelineResult['overall_freshness'] ?? 'Unknown').toString();
 
-      // 4) Save scan history (store the whole pipelineResult as summary)
+      // 4) Save scan history using the ORIGINAL image for display
       try {
         await ScanHistoryService.save(
           species: species,
           freshness: freshness,
-          frontImagePath: processedPath,
+          frontImagePath: displayPath, // use original here
           backImagePath: null,
           summary: pipelineResult,
         );
@@ -310,13 +325,13 @@ class _FishScanCameraState extends State<FishScanCamera>
         }
       }
 
-      // 5) Go to result screen
+      // 5) Go to result screen showing the ORIGINAL image
       if (!mounted) return;
       await Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => FishResultScreen(
-            imagePath: processedPath,
+            imagePath: displayPath, // use original here
             species: species,
             freshnessLabel: freshness,
             result: pipelineResult,
@@ -334,9 +349,7 @@ class _FishScanCameraState extends State<FishScanCamera>
       if (mounted && !_disposed) {
         setState(() {
           _runningInference = false;
-          _hint = _isTrayMode
-              ? 'Point camera at multiple fish on a tray'
-              : 'Point camera at a single fish';
+          _hint = 'Point camera and hold steady';
         });
       }
     }
@@ -368,11 +381,13 @@ class _FishScanCameraState extends State<FishScanCamera>
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Use Anyway')),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Use Anyway'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Retake')),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Retake'),
+            ),
           ],
         ),
       );
@@ -558,43 +573,6 @@ class _FishScanCameraState extends State<FishScanCamera>
               ),
             ),
 
-          // === Mode toggle: Single vs Tray ===
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 130,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _ModeChip(
-                  label: 'Single',
-                  selected: !_isTrayMode,
-                  onTap: () {
-                    if (_isTrayMode) {
-                      setState(() {
-                        _isTrayMode = false;
-                        _hint = 'Point camera at a single fish';
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(width: 8),
-                _ModeChip(
-                  label: 'Tray',
-                  selected: _isTrayMode,
-                  onTap: () {
-                    if (!_isTrayMode) {
-                      setState(() {
-                        _isTrayMode = true;
-                        _hint = 'Point camera at multiple fish on a tray';
-                      });
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-
           // Capture button
           Positioned(
             bottom: MediaQuery.of(context).padding.bottom + 24,
@@ -690,43 +668,6 @@ class _TopButton extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: Colors.white, size: 22),
-      ),
-    );
-  }
-}
-
-class _ModeChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ModeChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? Colors.cyanAccent : Colors.black.withOpacity(0.4),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: Colors.white.withOpacity(selected ? 0.0 : 0.4),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.black : Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
       ),
     );
   }

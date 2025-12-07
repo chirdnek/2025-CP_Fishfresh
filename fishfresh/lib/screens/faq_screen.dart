@@ -491,26 +491,29 @@ class _MiniChatSheetState extends State<_MiniChatSheet> {
     'How is data stored?'
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    const apiKey = String.fromEnvironment('GEMINI_API_KEY');
-    if (apiKey.isEmpty) {
-      _error =
-          'Gemini API key is not configured. Launch with --dart-define=GEMINI_API_KEY=YOUR_KEY';
-    } else {
-      _model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: apiKey,
-        generationConfig: GenerationConfig(
-          temperature: 0.2,
-          topP: 0.9,
-          topK: 32,
-          maxOutputTokens: 256,
-        ),
-      );
-    }
+@override
+void initState() {
+  super.initState();
+
+  const apiKey = String.fromEnvironment('GEMINI_API_KEY');
+
+  if (apiKey.isEmpty) {
+    _error =
+        'Gemini API key is not configured. Launch with --dart-define=GEMINI_API_KEY=YOUR_KEY';
+  } else {
+    _model = GenerativeModel(
+      model: 'gemini-2.5-flash-lite',
+      apiKey: apiKey, // 👈 use this
+      generationConfig: GenerationConfig(
+        temperature: 0.2,
+        topP: 0.9,
+        topK: 32,
+        maxOutputTokens: 256,
+      ),
+    );
   }
+}
+
 
   @override
   void dispose() {

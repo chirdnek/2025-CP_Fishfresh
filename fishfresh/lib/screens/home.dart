@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' show ImageFilter;
 
 import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -30,10 +31,10 @@ import 'fish_scan_camera.dart';
 import 'package:fishfresh/screens/history.dart';
 import 'almanac_screen.dart';
 
-// 👇 NEW: external gallery picker screen
+// external gallery picker screen
 import 'gallery.dart';
 
-// === Single-model import (used for gallery-only prediction) ===
+// single-model import (used for gallery-only prediction)
 import '../services/fish_model.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -93,7 +94,7 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    // ✅ keep image cache in check (helps stability on low-RAM)
+    // keep image cache in check (helps stability on low-RAM)
     PaintingBinding.instance.imageCache.maximumSize = 150;
     PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20; // ~50MB
 
@@ -108,7 +109,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Cached cameras (file-level)
+// cached cameras (file-level)
 List<CameraDescription>? _cachedCameras;
 
 class _HomePageState extends State<HomePage> {
@@ -123,7 +124,10 @@ class _HomePageState extends State<HomePage> {
   String? _currentDateLabel;
   bool _showDateLabel = false;
 
-  // === Single model instance here (for gallery-only prediction) ===
+  // blur overlay for Recents
+  bool _recentsBlurred = true;
+
+  // single model instance (gallery-only prediction)
   final FishModel _fishModel = FishModel();
   bool _modelReady = false;
 
@@ -185,7 +189,8 @@ class _HomePageState extends State<HomePage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final data = doc.data();
 
       if (!mounted) return;
@@ -255,7 +260,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // ✅ throttle: only setState if label actually changes
+  // throttle: only setState if label actually changes
   void _updateDateLabelOnScroll() {
     if (!_scrollController.hasClients || _galleryImages.isEmpty) return;
     const itemHeight = 130;
@@ -290,14 +295,13 @@ class _HomePageState extends State<HomePage> {
       final pred = await _fishModel.predict(dsPath);
       sw.stop();
 
-      String species   = (pred["predicted_species"] ?? "Unknown").toString();
+      String species = (pred["predicted_species"] ?? "Unknown").toString();
       String freshness = (pred["predicted_freshness"] ?? "Unknown").toString();
 
       double? confidence;
       if (pred["confidence"] is num) {
         confidence = _norm01(pred["confidence"] as num);
       } else {
-        // if future versions add species_scores etc.
         final speciesScores = _asDoubleMap(pred["species_scores"]);
         if (speciesScores != null && speciesScores.isNotEmpty) {
           confidence = speciesScores[species] ??
@@ -331,7 +335,6 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
 
-      // Pack full result for FishResultScreen (it can show summary info)
       final packed = <String, dynamic>{
         ...pred,
         "confidence": confidence,
@@ -373,7 +376,7 @@ class _HomePageState extends State<HomePage> {
     await _runPredictionSingle(res);
   }
 
-  // ======== Camera scan (single-shot) – YOLO+MobileNet handled inside FishScanCamera ========
+  // ======== Camera scan (single-shot) ========
   Future<void> _scanFish() async {
     try {
       _cachedCameras ??= await availableCameras();
@@ -385,7 +388,6 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      // We no longer wait for any result map; pipeline + result screen
       await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => FishScanCamera(cameras: _cachedCameras!)),
@@ -409,12 +411,14 @@ class _HomePageState extends State<HomePage> {
             IconButton(
               icon: const Icon(Icons.help_outline, color: Colors.white),
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const FAQScreen()));
+                Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => const FAQScreen()));
               },
             ),
             GestureDetector(
               onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => FishAlmanacPage()));
+                Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => FishAlmanacPage()));
               },
               child: Padding(
                 padding: const EdgeInsets.only(left: 8.0),
@@ -424,7 +428,10 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingsScreen())),
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const ProfileSettingsScreen())),
           child: CircleAvatar(
             radius: 20,
             backgroundImage: (_localImagePath != null)
@@ -450,13 +457,15 @@ class _HomePageState extends State<HomePage> {
           ).createShader(bounds),
           child: const Text(
             'Fish Fresh',
-            style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+            style:
+                TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
         const SizedBox(height: 10),
         Text(
           'Hi ${_firstName ?? 'User'}!',
-          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         const SizedBox(
@@ -470,165 +479,221 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildRecents() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Recents',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 15),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF171717),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          height: 370,
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : (_galleryImages.isEmpty)
-                  ? const Center(
-                      child: Text('No images found.', style: TextStyle(color: Colors.grey)))
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Stack(
-                        children: [
-                          // === GRID ===
-                          GridView.builder(
-                            controller: _scrollController,
-                            itemCount: _galleryImages.length + 1,
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                              childAspectRatio: 1,
-                            ),
-                            itemBuilder: (context, index) {
-                              // first tile = open picker
-                              if (index == 0) {
-                                return GestureDetector(
-                                  onTap: _openFullGallerySelector,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[800],
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(Icons.photo_library,
-                                        color: Colors.white, size: 40),
-                                  ),
-                                );
-                              }
-
-                              final asset = _galleryImages[index - 1];
-                              // ✅ thumbnail provider (fast + cached), tiles non-clickable
-                              return AbsorbPointer(
-                                absorbing: true,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image(
-                                    image: AssetEntityImageProvider(
-                                      asset,
-                                      isOriginal: false,
-                                      thumbnailSize: const ThumbnailSize(300, 300),
-                                    ),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-
-                          // === DATE LABEL ===
-                          if (_showDateLabel && _currentDateLabel != null)
-                            Positioned(
-                              top: 10,
-                              right: 10,
+  Widget _buildRecentsCard() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171717),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : (_galleryImages.isEmpty)
+              ? const Center(
+                  child: Text('No images found.', style: TextStyle(color: Colors.grey)))
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    children: [
+                      // GRID (scrolls inside card if needed)
+                      GridView.builder(
+                        controller: _scrollController,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _galleryImages.length + 1,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 1,
+                        ),
+                        itemBuilder: (context, index) {
+                          // first tile = open picker
+                          if (index == 0) {
+                            return GestureDetector(
+                              onTap: _openFullGallerySelector,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.7),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.grey[800],
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Text(
-                                  _currentDateLabel!,
-                                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                                child: const Icon(
+                                  Icons.photo_library,
+                                  color: Colors.white,
+                                  size: 40,
+                                ),
+                              ),
+                            );
+                          }
+
+                          final asset = _galleryImages[index - 1];
+
+                          return AbsorbPointer(
+                            absorbing: true,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image(
+                                image: AssetEntityImageProvider(
+                                  asset,
+                                  isOriginal: false,
+                                  thumbnailSize: const ThumbnailSize(300, 300),
+                                ),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // DATE LABEL
+                      if (_showDateLabel && _currentDateLabel != null)
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _currentDateLabel!,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                        ),
+
+                      // BLUR OVERLAY OVER THE WHOLE PANEL
+                      if (_recentsBlurred)
+                        Positioned.fill(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _recentsBlurred = false); // reveal all
+                            },
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(
+                                sigmaX: 18,
+                                sigmaY: 18,
+                              ),
+                              child: Container(
+                                color: Colors.black.withOpacity(0.25),
+                                alignment: Alignment.center,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.visibility,
+                                        color: Colors.white, size: 30),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'View images',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Tap to reveal your gallery',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-        ),
-      ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
     );
   }
 
   Widget _buildBottomNavBar() {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 25, left: 24, right: 24),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 25, left: 24, right: 24, top: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            height: 55,
+            width: 130,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Home
+                GestureDetector(
+                  onTap: () => setState(() => _selectedNavIndex = 0),
+                  child: Container(
+                    height: 45,
+                    width: 45,
+                    decoration: BoxDecoration(
+                      color:
+                          _selectedNavIndex == 0 ? Colors.black : Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.home,
+                      color: _selectedNavIndex == 0
+                          ? Colors.white
+                          : Colors.black,
+                      size: 28,
+                    ),
+                  ),
+                ),
+                // History
+                GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedNavIndex = 1);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HistoryPage(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    height: 45,
+                    width: 45,
+                    decoration: BoxDecoration(
+                      color:
+                          _selectedNavIndex == 1 ? Colors.black : Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.history,
+                      color: _selectedNavIndex == 1
+                          ? Colors.white
+                          : Colors.black,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Scan
+          GestureDetector(
+            onTap: _scanFish,
+            child: Container(
               height: 55,
-              width: 130,
+              width: 55,
               decoration:
-                  BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Home
-                  GestureDetector(
-                    onTap: () => setState(() => _selectedNavIndex = 0),
-                    child: Container(
-                      height: 45,
-                      width: 45,
-                      decoration: BoxDecoration(
-                        color: _selectedNavIndex == 0 ? Colors.black : Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.home,
-                          color: _selectedNavIndex == 0 ? Colors.white : Colors.black, size: 28),
-                    ),
-                  ),
-                  // History
-                  GestureDetector(
-                    onTap: () {
-                      setState(() => _selectedNavIndex = 1);
-                      Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const HistoryPage()));
-                    },
-                    child: Container(
-                      height: 45,
-                      width: 45,
-                      decoration: BoxDecoration(
-                        color: _selectedNavIndex == 1 ? Colors.black : Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.history,
-                          color: _selectedNavIndex == 1 ? Colors.white : Colors.black, size: 28),
-                    ),
-                  ),
-                ],
-              ),
+                  const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: const Icon(Icons.qr_code_scanner_rounded,
+                  color: Colors.black, size: 30),
             ),
-            // Scan (always enabled, camera handles its own model init)
-            GestureDetector(
-              onTap: _scanFish,
-              child: Container(
-                height: 55,
-                width: 55,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const Icon(Icons.qr_code_scanner_rounded,
-                    color: Colors.black, size: 30),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -640,37 +705,62 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: Stack(
           children: [
+            // koi fish – pushed further right
             Positioned(
               top: 0,
-              right: -50,
-              child: Image.asset('assets/images/fish_koi.png',
-                  width: 250, fit: BoxFit.contain),
+              right: -70, // more off-screen to the right
+              child: Image.asset(
+                'assets/images/fish_koi.png',
+                width: 260,
+                fit: BoxFit.contain,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: RefreshIndicator(
-                onRefresh: _onRefresh,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-                      _buildTopBar(),
-                      const SizedBox(height: 20),
-                      _buildHeader(),
-                      const SizedBox(height: 30),
-                      _buildRecents(),
-                      const SizedBox(height: 100),
-                    ],
-                  ),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  _buildTopBar(),
+                  const SizedBox(height: 20),
+                  _buildHeader(),
+                  const SizedBox(height: 20),
+                  // Recents area fills remaining height
+               Expanded(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Recents',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 15),
+
+      // 🔄 Pull-to-refresh wrapper for the Recents grid
+      Expanded(
+        child: RefreshIndicator(
+          onRefresh: _onRefresh,
+          // optional: tweak color/background if you want
+          // color: Colors.white,
+          // backgroundColor: Colors.black,
+          child: _buildRecentsCard(),
+        ),
+      ),
+    ],
+  ),
+),
+
+                ],
               ),
             ),
-            _buildBottomNavBar(),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 }

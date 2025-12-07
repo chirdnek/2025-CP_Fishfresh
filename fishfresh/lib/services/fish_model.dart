@@ -25,12 +25,16 @@ class FishModel {
     if (_initialized) return;
 
     // Load combined class labels
-    final jsonStr = await rootBundle.loadString('assets/model/classes_flat.json');
+    final jsonStr = await rootBundle.loadString(
+      'assets/model/classes_flat.json',
+    );
     final parsed = json.decode(jsonStr);
     if (parsed is List) {
       combinedLabels = List<String>.from(parsed);
     } else if (parsed is Map<String, dynamic>) {
-      final freshness = List<String>.from(parsed['freshness_classes'] ?? const []);
+      final freshness = List<String>.from(
+        parsed['freshness_classes'] ?? const [],
+      );
       final species = List<String>.from(parsed['species_classes'] ?? const []);
       final fresh = species.map((s) => 'fresh__${s}').toList();
       final notFresh = species.map((s) => 'not_fresh__${s}').toList();
@@ -54,57 +58,13 @@ class FishModel {
     _initialized = false;
   }
 
-  // ===================== NEW: single-image API (for camera + YOLO pipeline) =====================
+  // ===================== single-image API (for camera + YOLO pipeline or gallery) =====================
 
-  /// One-image prediction — this is what the camera (YOLO pipeline) should call.
-  /// Returns:
-  /// {
-  ///   'predicted_freshness': 'Fresh' | 'Not Fresh' | 'Unknown',
-  ///   'predicted_species'  : '<species name>' | 'Unknown',
-  ///   'confidence'         : double 0..1
-  /// }
   Future<Map<String, dynamic>> predictSingle(String imagePath) async {
     if (!_initialized) {
       throw StateError('Call init()/ensureInited() first');
     }
     return predict(imagePath);
-  }
-
-  // ===================== (Optional) legacy pair API – no longer used by camera =====================
-
-  /// OLD: Predict using both front + back images.
-  /// You can keep this for other features (e.g., gallery), but the camera
-  /// now uses `predictSingle` only.
-  Future<Map<String, dynamic>> predictPair(String frontPath, String backPath) async {
-    if (!_initialized) {
-      throw StateError('Call init() first');
-    }
-
-    final front = await predict(frontPath);
-    final back  = await predict(backPath);
-
-    // Freshness consensus: both must be Fresh
-    final frontFresh = (front["predicted_freshness"] as String?) ?? "Unknown";
-    final backFresh  = (back["predicted_freshness"] as String?) ?? "Unknown";
-    final finalFreshness =
-        (frontFresh == "Fresh" && backFresh == "Fresh") ? "Fresh" : "Not Fresh";
-
-    // Species agreement or pick higher confidence
-    final frontSpecies = (front["predicted_species"] as String?) ?? "Unknown";
-    final backSpecies  = (back["predicted_species"] as String?) ?? "Unknown";
-    final frontConf    = (front["confidence"] as double?) ?? 0.0;
-    final backConf     = (back["confidence"] as double?) ?? 0.0;
-
-    final finalSpecies = (frontSpecies == backSpecies)
-        ? frontSpecies
-        : (frontConf >= backConf ? frontSpecies : backSpecies);
-
-    return {
-      "predicted_freshness": finalFreshness,
-      "predicted_species": finalSpecies,
-      "front_result": front,
-      "back_result": back,
-    };
   }
 
   // ===================== helpers =====================
@@ -116,8 +76,12 @@ class FishModel {
   }
 
   String _speciesFromCombined(String combined) {
-    if (combined.startsWith(_freshPrefix)) return combined.substring(_freshPrefix.length);
-    if (combined.startsWith(_notFreshPrefix)) return combined.substring(_notFreshPrefix.length);
+    if (combined.startsWith(_freshPrefix)) {
+      return combined.substring(_freshPrefix.length);
+    }
+    if (combined.startsWith(_notFreshPrefix)) {
+      return combined.substring(_notFreshPrefix.length);
+    }
     return combined;
   }
 
@@ -166,14 +130,13 @@ class FishModel {
         0.0,
       );
       final output = outputFlat.reshape(outputShape);
-      
-   try {
+
+      try {
         _interpreter!.run(inputBuffer, output);
       } catch (e, st) {
         print('❌ FishModel TFLite run() error: $e\n$st');
-        rethrow; // let _runDetectorAndModel catch it as "Classifier error"
+        rethrow;
       }
-      _interpreter!.run(inputBuffer, output);
 
       // Flatten logits
       final logits = output
@@ -200,7 +163,9 @@ class FishModel {
       final species = _speciesFromCombined(bestLabel);
       final freshness = _freshnessFromCombined(bestLabel);
 
-      print('✅ Prediction → $freshness | $species | p=${bestP.toStringAsFixed(3)}');
+      print(
+        '✅ Prediction → $freshness | $species | p=${bestP.toStringAsFixed(3)}',
+      );
 
       return {
         'predicted_freshness': freshness,

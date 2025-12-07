@@ -65,7 +65,8 @@ dependencies:
   connectivity_plus: ^6.0.2
   internet_connection_checker_plus: ^2.3.0
   timeago: ^3.6.0
-
+  printing: ^5.12.0 
+  pdf: ^3.11.0  
 
 
 
@@ -113,10 +114,9 @@ flutter:
     - assets/images/avatar4.png
     - assets/images/avatar5.png
     - assets/images/google_logo.png
-    - assets/model/resnet50Nov_1_7-02_am_float32.tflite
-    - assets/model/resnet50Nov_5_2-03_am_float32.tflite
-    - assets/model/mobilenetv2_torchvision_Nov_2_3-38am_float32.tflite
-    - assets/model/mobilenetv2_torchvision_Nov_25_2-27_am_float32.tflite
+    - assets/model/mobilenetv2_torchvision_Nov_27_9-54_am_float32 (1).tflite
+    - assets/model/resnet50_torchvision_Dec_6_12-53_pm_5_SPECIES_float32.tflite
+    - assets/model/resnet50_torchvision_Dec_6_5-33_pm_6species_float32.tflite
     - assets/model/fishdet_fp32_2025-11-17_00-50-15.tflite
     - assets/model/fishdet_config.json
     - assets/model/classes_flat.json
