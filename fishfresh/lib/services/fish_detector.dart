@@ -4,7 +4,7 @@
 // ignore_for_file: unused_import, unnecessary_null_comparison, unnecessary_cast, unnecessary_import, unnecessary_brace_in_string_interps, unused_element, unintended_html_in_doc_comment
 
 import 'dart:typed_data';
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui' show Rect;
 
 import 'package:flutter/foundation.dart'; // debugPrint
@@ -25,6 +25,48 @@ class FishDetection {
     required this.classId,
   });
 }
+
+class _LetterboxInfo {
+  final img.Image image; // size x size
+  final double scale;    // gain
+  final int padX;
+  final int padY;
+  _LetterboxInfo({
+    required this.image,
+    required this.scale,
+    required this.padX,
+    required this.padY,
+  });
+}
+
+_LetterboxInfo _letterbox(img.Image src, int size) {
+  final int w = src.width;
+  final int h = src.height;
+
+  final double gain = math.min(size / w, size / h);
+  final int newW = (w * gain).round();
+  final int newH = (h * gain).round();
+
+  final int padX = ((size - newW) / 2).round();
+  final int padY = ((size - newH) / 2).round();
+
+  final img.Image resized = img.copyResize(
+    src,
+    width: newW,
+    height: newH,
+    interpolation: img.Interpolation.linear,
+  );
+
+  final img.Image out = img.Image(width: size, height: size);
+
+  // Padding color 114 like Ultralytics
+  img.fill(out, color: img.ColorRgb8(114, 114, 114));
+
+  img.compositeImage(out, resized, dstX: padX, dstY: padY);
+
+  return _LetterboxInfo(image: out, scale: gain, padX: padX, padY: padY);
+}
+
 
 class FishDetector {
   FishDetector._private();
@@ -77,13 +119,9 @@ class FishDetector {
     final origW = original.width;
     final origH = original.height;
 
-    // Resize to YOLO input size (square)
-    final resized = img.copyResize(
-      original,
-      width: _config.inputSize,
-      height: _config.inputSize,
-      interpolation: img.Interpolation.nearest,
-    );
+    // Letterbox resize (keep aspect ratio + pad) — matches Ultralytics behavior
+    final _LetterboxInfo lb = _letterbox(original, _config.inputSize);
+    final img.Image resized = lb.image;
 
     // ---------------- INPUT SHAPE ----------------
     final inTensors = _interpreter!.getInputTensors();
@@ -167,6 +205,7 @@ class FishDetector {
 
     final output = _allocOutputBuffer(outShape);
 
+
     try {
       // Single input, single output
       _interpreter!.run(inputTensor, output);
@@ -175,9 +214,11 @@ class FishDetector {
       return [];
     }
 
+    
+
     // Parse detections
     try {
-      final parsed = _parseYolo(output, origW, origH);
+      final parsed = _parseYolo(output, origW, origH, lb);
       debugPrint(
         'FishDetector: parsed ${parsed.length} detections '
         '(conf >= ${_config.confThreshold}).',
@@ -273,7 +314,7 @@ class FishDetector {
 
     return build(0, shape);
   }
-     List<FishDetection> _parseYolo(Object rawOutput, int origW, int origH) {
+    List<FishDetection> _parseYolo(Object rawOutput, int origW, int origH, _LetterboxInfo lb) {
     if (rawOutput is! List) {
       debugPrint(
           'FishDetector: rawOutput is not a List (got ${rawOutput.runtimeType}).');
@@ -314,7 +355,7 @@ class FishDetector {
     // ch[0] = x, ch[1] = y, ch[2] = w, ch[3] = h (all normalized 0..1)
     // ch[4] = obj or some extra value (we IGNORE this)
     // ch[5..] = per-class confidence scores (already "good" final scores)
-    const int clsOffset = 5;
+    const int clsOffset = 4; // YOLOv8 TFLite is typically [x,y,w,h, class...]
     final int numClasses = channels - clsOffset;
 
     // Log one box for sanity
@@ -341,10 +382,20 @@ class FishDetector {
       }
       if (wNorm <= 0 || hNorm <= 0) continue;
 
-      final double xc = xNorm * origW;
-      final double yc = yNorm * origH;
-      final double w  = wNorm * origW;
-      final double h  = hNorm * origH;
+      final double inSize = _config.inputSize.toDouble();
+
+      // normalized -> input pixels (letterboxed square)
+      final double xcIn = xNorm * inSize;
+      final double ycIn = yNorm * inSize;
+      final double wIn  = wNorm * inSize;
+      final double hIn  = hNorm * inSize;
+
+      // undo padding + scale
+      final double gain = lb.scale;
+      final double xc = (xcIn - lb.padX) / gain;
+      final double yc = (ycIn - lb.padY) / gain;
+      final double w  = wIn / gain;
+      final double h  = hIn / gain;
 
       // max class score (we treat this as the final confidence)
       double bestCls = 0.0;

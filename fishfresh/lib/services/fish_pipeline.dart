@@ -265,7 +265,15 @@ class FishPipeline {
   }) async {
     await ensureInited();
 
-    final fullImg = img.decodeImage(bytes);
+    img.Image? fullImg = img.decodeImage(bytes);
+    if (fullImg == null) throw Exception("Decode failed");
+
+    // Apply EXIF orientation to pixels (prevents rotated/offset crops)
+    try {
+      fullImg = img.bakeOrientation(fullImg);
+    } catch (_) {
+      // If bakeOrientation isn't available in your image package version, ignore for now.
+    }
     if (fullImg == null) {
       throw Exception("Decode failed");
     }
@@ -275,12 +283,17 @@ class FishPipeline {
 
     // 1) Run detector
     final sw = Stopwatch()..start();
-    final rawDetections = await FishDetector.instance.detect(bytes);
+    var rawDetections = await FishDetector.instance.detect(bytes);
     sw.stop();
 
     debugPrint(
       'FishPipeline: raw YOLO detections = ${rawDetections.length} (requested mode=${mode.name})',
     );
+    // Keep ONLY the YOLO "Fish" class (matches your notebook classes=[fish_id])
+    const int fishClassId = 192;
+    rawDetections = rawDetections.where((d) => d.classId == fishClassId).toList();
+    debugPrint('FishPipeline: fish-only detections = ${rawDetections.length}');
+
 
     // ---- If YOLO completely fails, fall back to full-frame ResNet (single) ----
     if (rawDetections.isEmpty && mode != ScanMode.tray) {
