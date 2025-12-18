@@ -1,5 +1,5 @@
 // lib/screens/fish_scan_camera.dart
-// ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api,, deprecated_member_use, deprecated_member_use, deprecated_member_use, deprecated_member_use
+// ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api,, deprecated_member_use, deprecated_member_use, deprecated_member_use, deprecated_member_use, deprecated_member_use
 // unused_field, deprecated_member_use, constant_identifier_names, use_build_context_synchronously,
 // unnecessary_brace_in_string_interps, unnecessary_import, unused_element, override_on_non_overriding_member
 
@@ -54,9 +54,9 @@ class _FishScanCameraState extends State<FishScanCamera>
     } catch (e) {
       debugPrint('❌ Model init failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Model init failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Model init failed: $e')));
       }
     }
   }
@@ -128,9 +128,9 @@ class _FishScanCameraState extends State<FishScanCamera>
     } catch (e) {
       debugPrint('❌ Camera init failed: $e');
       if (mounted && !_disposed) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Camera error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Camera error: $e')));
       }
     }
   }
@@ -140,8 +140,9 @@ class _FishScanCameraState extends State<FishScanCamera>
 
     try {
       _isFlashOn = !_isFlashOn;
-      await _controller!
-          .setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
+      await _controller!.setFlashMode(
+        _isFlashOn ? FlashMode.torch : FlashMode.off,
+      );
 
       if (mounted && !_disposed) setState(() {});
     } catch (e) {
@@ -206,8 +207,8 @@ class _FishScanCameraState extends State<FishScanCamera>
         mode: ScanMode.auto,
       );
 
-      final perFish = (pipelineResult['per_fish'] as List<dynamic>?) ??
-          const <dynamic>[];
+      final perFish =
+          (pipelineResult['per_fish'] as List<dynamic>?) ?? const <dynamic>[];
 
       if (perFish.isEmpty) {
         if (mounted) {
@@ -223,8 +224,8 @@ class _FishScanCameraState extends State<FishScanCamera>
         return;
       }
 
-      final String species =
-          (pipelineResult['overall_species'] ?? 'Unknown').toString();
+      final String species = (pipelineResult['overall_species'] ?? 'Unknown')
+          .toString();
       final String freshness =
           (pipelineResult['overall_freshness'] ?? 'Unknown').toString();
 
@@ -239,9 +240,9 @@ class _FishScanCameraState extends State<FishScanCamera>
         );
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Save failed: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
         }
       }
 
@@ -262,9 +263,9 @@ class _FishScanCameraState extends State<FishScanCamera>
     } catch (e, st) {
       debugPrint('❌ _captureAndAnalyze error: $e\n$st');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Capture / analysis error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Capture / analysis error: $e')));
       }
     } finally {
       if (mounted && !_disposed) {
@@ -288,9 +289,7 @@ class _FishScanCameraState extends State<FishScanCamera>
   @override
   Widget build(BuildContext context) {
     if (!_isReady || _controller == null || !_controller!.value.isInitialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     const stepLabel = 'Capture the FRONT of the fish';
@@ -329,15 +328,11 @@ class _FishScanCameraState extends State<FishScanCamera>
                 Row(
                   children: [
                     _TopButton(
-                      icon:
-                          _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                      icon: _isFlashOn ? Icons.flash_on : Icons.flash_off,
                       onTap: _toggleFlash,
                     ),
                     const SizedBox(width: 8),
-                    _TopButton(
-                      icon: Icons.cameraswitch,
-                      onTap: _switchCamera,
-                    ),
+                    _TopButton(icon: Icons.cameraswitch, onTap: _switchCamera),
                   ],
                 ),
               ],
@@ -350,10 +345,7 @@ class _FishScanCameraState extends State<FishScanCamera>
             left: 0,
             right: 0,
             child: const Center(
-              child: Text(
-                stepLabel,
-                style: TextStyle(color: Colors.white),
-              ),
+              child: Text(stepLabel, style: TextStyle(color: Colors.white)),
             ),
           ),
 
@@ -364,10 +356,7 @@ class _FishScanCameraState extends State<FishScanCamera>
               margin: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + 110,
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: statusColor,
                 borderRadius: BorderRadius.circular(12),
@@ -407,7 +396,7 @@ class _FishScanCameraState extends State<FishScanCamera>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withValues(alpha: 0.3),
                             width: 2,
                           ),
                         ),
@@ -436,7 +425,7 @@ class _FishScanCameraState extends State<FishScanCamera>
           if (_runningInference)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 child: const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -463,10 +452,7 @@ class _TopButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _TopButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _TopButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -476,14 +462,10 @@ class _TopButton extends StatelessWidget {
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.35),
+          color: Colors.black.withValues(alpha: 0.35),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: 22,
-        ),
+        child: Icon(icon, color: Colors.white, size: 22),
       ),
     );
   }
