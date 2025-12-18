@@ -37,7 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     OnboardingPage(
       imagePath: 'assets/images/market.png',
       title: 'Track & Learn',
-      subtitle: 'Save scans, spot patterns, and make smarter seafood choices.',
+      subtitle: 'Save scans, spot patterns, and make smarter fish choices.',
       bgColor: Color.fromARGB(255, 13, 76, 124),
     ),
     // Final page uses a dark background so the white panel content pops

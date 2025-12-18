@@ -1,29 +1,27 @@
 // lib/screens/fish_scan_camera.dart
-// ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api, unused_field, deprecated_member_use, constant_identifier_names, use_build_context_synchronously, unnecessary_brace_in_string_interps, unnecessary_import, unused_element
+// ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api,, deprecated_member_use, deprecated_member_use, deprecated_member_use, deprecated_member_use
+// unused_field, deprecated_member_use, constant_identifier_names, use_build_context_synchronously,
+// unnecessary_brace_in_string_interps, unnecessary_import, unused_element, override_on_non_overriding_member
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart'; // debugPrint
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'; // for debugPrint
 import 'package:photo_manager/photo_manager.dart';
-import 'package:image/image.dart' as img;
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 
+import '../services/fish_pipeline.dart'; // FishPipeline + ScanMode
 import '../services/save_scan_history.dart';
-import '../services/image_service.dart';
-import 'fish_result_screen.dart';
-import '../services/fish_pipeline.dart'; // contains FishPipeline + ScanMode
+import 'fish_result_screen.dart'; // ✅ your result screen
 
 class FishScanCamera extends StatefulWidget {
   final List<CameraDescription> cameras;
+
   const FishScanCamera({required this.cameras});
 
   @override
-  State<FishScanCamera> createState() => _FishScanCameraState();
+  State<FishScanCamera> createState() => _FishScanCameraState(); // ✅ fix here
 }
 
 class _FishScanCameraState extends State<FishScanCamera>
@@ -32,21 +30,12 @@ class _FishScanCameraState extends State<FishScanCamera>
   bool _disposed = false;
   bool _isReady = false;
   bool _isFlashOn = false;
-  bool _scanning = false;
   bool _runningInference = false;
-  double _scanLineY = 0.0;
-
   int _currentCameraIndex = 0;
-  Timer? _scanTimer;
 
   // === Models (through FishPipeline) ===
   bool _modelReady = false;
-
-  // === Quality thresholds (still-image QA) ===
-  static const double _BLUR_THRESHOLD = 100.0; // tune 80–120 per device
-  static const int _QA_MAX_SIDE = 1280; // speed up QA decode
-
-  String _hint = 'Initializing camera…';
+  String _hint = 'Point the camera at the fish';
 
   @override
   void initState() {
@@ -75,6 +64,7 @@ class _FishScanCameraState extends State<FishScanCamera>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_disposed) return;
+
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
       _controller?.dispose();
@@ -87,6 +77,7 @@ class _FishScanCameraState extends State<FishScanCamera>
 
   Future<void> _initCamera(int index) async {
     if (_disposed) return;
+
     if (widget.cameras.isEmpty) {
       debugPrint('❌ No cameras found');
       return;
@@ -99,6 +90,7 @@ class _FishScanCameraState extends State<FishScanCamera>
 
     try {
       final cam = widget.cameras[index];
+
       final controller = CameraController(
         cam,
         ResolutionPreset.high,
@@ -107,6 +99,7 @@ class _FishScanCameraState extends State<FishScanCamera>
       );
 
       await controller.initialize();
+
       if (_disposed) {
         await controller.dispose();
         return;
@@ -114,10 +107,10 @@ class _FishScanCameraState extends State<FishScanCamera>
 
       await controller.setFlashMode(FlashMode.off);
 
-      // Let camera handle autofocus + auto exposure internally
       try {
         await controller.setFocusMode(FocusMode.auto);
       } catch (_) {}
+
       try {
         await controller.setExposureMode(ExposureMode.auto);
       } catch (_) {}
@@ -127,7 +120,7 @@ class _FishScanCameraState extends State<FishScanCamera>
           _controller = controller;
           _currentCameraIndex = index;
           _isReady = true;
-          _hint = 'Point camera and hold steady';
+          _hint = 'Hold steady and tap the button to capture';
         });
       } else {
         await controller.dispose();
@@ -144,10 +137,12 @@ class _FishScanCameraState extends State<FishScanCamera>
 
   Future<void> _toggleFlash() async {
     if (!_isReady || _controller == null) return;
+
     try {
       _isFlashOn = !_isFlashOn;
       await _controller!
           .setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
+
       if (mounted && !_disposed) setState(() {});
     } catch (e) {
       debugPrint('⚡ Flash error: $e');
@@ -160,11 +155,9 @@ class _FishScanCameraState extends State<FishScanCamera>
     await _initCamera(newIndex);
   }
 
-  // If user taps the capture button, show scan animation then capture.
-  Future<void> _startScanAndCapture({bool auto = false}) async {
-    if (!_isReady || _controller == null || _scanning || _runningInference) {
-      return;
-    }
+  // Single, smooth capture → analyze (no animations / QA dialogs)
+  Future<void> _captureAndAnalyze() async {
+    if (!_isReady || _controller == null || _runningInference) return;
 
     if (!_modelReady) {
       if (mounted) {
@@ -175,36 +168,13 @@ class _FishScanCameraState extends State<FishScanCamera>
       return;
     }
 
-    setState(() {
-      _scanning = true;
-      _scanLineY = 0;
-      _hint = 'Capturing…';
-    });
-
-    final screenHeight = MediaQuery.of(context).size.height;
-    _scanTimer?.cancel();
-    _scanTimer = Timer.periodic(const Duration(milliseconds: 12), (t) {
-      if (!mounted || _disposed) {
-        t.cancel();
-        return;
-      }
-      setState(() {
-        _scanLineY += 6.0;
-        if (_scanLineY >= screenHeight - 100) {
-          _scanning = false;
-          t.cancel();
-          _capturePictureAfterScan();
-        }
-      });
-    });
-  }
-
-  Future<void> _capturePictureAfterScan() async {
-    if (!_isReady || _controller == null || _disposed || _runningInference) {
-      return;
-    }
-
     try {
+      setState(() {
+        _runningInference = true;
+        _hint = 'Capturing…';
+      });
+
+      // Request gallery permission (for saving image)
       final perm = await PhotoManager.requestPermissionExtend();
       if (!perm.isAuth) {
         if (mounted) {
@@ -214,106 +184,56 @@ class _FishScanCameraState extends State<FishScanCamera>
         }
       }
 
-      final file = await _controller!.takePicture();
+      // 1) Capture photo
+      final xFile = await _controller!.takePicture();
+      final String originalPath = xFile.path;
 
-      // 1) Keep original for UI
-      final String originalPath = file.path;
-
-      // 2) Optionally save to gallery
+      // Optional: save to gallery
       try {
         await PhotoManager.editor.saveImageWithPath(originalPath);
       } catch (_) {}
 
-      // 3) Preprocess copy for the model
-      final processedPath = await _qaAndPreprocess(originalPath);
-      if (processedPath == null) {
-        if (mounted && !_disposed) {
-          _hint = 'Point camera and hold steady';
-          setState(() {});
-        }
-        return;
-      }
+      setState(() {
+        _hint = 'Analyzing fish...';
+      });
 
-      // 4) Run AI using processed image, but display original
-      await _runDetectorAndModel(
-        processedPath: processedPath,
-        displayPath: originalPath,
-      );
-    } catch (e) {
-      debugPrint('❌ _capturePictureAfterScan error: $e');
-      if (mounted && !_disposed) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Capture error: $e')),
-        );
-      }
-    }
-  }
+      // 2) Read ORIGINAL bytes (match gallery path)
+      final Uint8List imageBytes = await File(originalPath).readAsBytes();
 
-  /// Full pipeline after capture:
-  /// 1) Run FishPipeline (YOLO + MobileNet for every detected fish)
-  /// 2) Save history
-  /// 3) Navigate to FishResultScreen with full result map
-  Future<void> _runDetectorAndModel({
-    required String processedPath,
-    required String displayPath, // original for UI
-  }) async {
-    if (!mounted || _disposed) return;
-
-    setState(() {
-      _runningInference = true;
-      _hint = 'Analyzing fish...';
-    });
-
-    try {
-      // 1) Read bytes of the **processed** image for the models
-      final file = File(processedPath);
-      final Uint8List imageBytes = await file.readAsBytes();
-
-      // 2) Run full pipeline in AUTO mode (pipeline decides single vs tray)
+      // 3) Run the same pipeline as gallery: YOLO + ResNet
       final pipelineResult = await FishPipeline.instance.runOnBytes(
         imageBytes,
         mode: ScanMode.auto,
       );
 
-      // Update hint based on resolved scan_mode (from pipeline)
-      final resolvedMode =
-          (pipelineResult['scan_mode'] ?? 'single').toString().toLowerCase();
-      if (mounted && !_disposed) {
-        setState(() {
-          _hint = resolvedMode == 'tray'
-              ? 'Detected multiple fish in frame'
-              : 'Detected a single fish in frame';
-        });
-      }
+      final perFish = (pipelineResult['per_fish'] as List<dynamic>?) ??
+          const <dynamic>[];
 
-      final perFish =
-          (pipelineResult['per_fish'] as List<dynamic>?) ?? const [];
       if (perFish.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No fish detected. Please scan again.'),
+              content: Text('No fish detected. Please try again.'),
             ),
           );
           setState(() {
-            _hint = 'No fish detected — adjust framing and retake';
+            _hint = 'Adjust framing and retake';
           });
         }
         return;
       }
 
-      // 3) Extract overall species/freshness
       final String species =
           (pipelineResult['overall_species'] ?? 'Unknown').toString();
       final String freshness =
           (pipelineResult['overall_freshness'] ?? 'Unknown').toString();
 
-      // 4) Save scan history using the ORIGINAL image for display
+      // 4) Save history using the original photo
       try {
         await ScanHistoryService.save(
           species: species,
           freshness: freshness,
-          frontImagePath: displayPath, // use original here
+          frontImagePath: originalPath,
           backImagePath: null,
           summary: pipelineResult,
         );
@@ -325,13 +245,14 @@ class _FishScanCameraState extends State<FishScanCamera>
         }
       }
 
-      // 5) Go to result screen showing the ORIGINAL image
+      // 5) Navigate to result screen
       if (!mounted) return;
+
       await Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => FishResultScreen(
-            imagePath: displayPath, // use original here
+            imagePath: originalPath,
             species: species,
             freshnessLabel: freshness,
             result: pipelineResult,
@@ -339,120 +260,26 @@ class _FishScanCameraState extends State<FishScanCamera>
         ),
       );
     } catch (e, st) {
-      debugPrint('❌ _runDetectorAndModel error: $e\n$st');
+      debugPrint('❌ _captureAndAnalyze error: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Inference error: $e')),
+          SnackBar(content: Text('Capture / analysis error: $e')),
         );
       }
     } finally {
       if (mounted && !_disposed) {
         setState(() {
           _runningInference = false;
-          _hint = 'Point camera and hold steady';
+          _hint = 'Point the camera at the fish';
         });
       }
     }
-  }
-
-  // ===================== QA + preprocess helpers (still image) =====================
-
-  Future<String?> _qaAndPreprocess(String originalPath) async {
-    final decoded =
-        await _readRgbaFromPath(originalPath, maxSide: _QA_MAX_SIDE);
-    if (decoded == null) return null;
-    var rgba = decoded.rgba;
-    int w = decoded.w, h = decoded.h;
-
-    final blurScore =
-        ImageService.blurScoreVarianceOfLaplacian_Fallback(rgba, w, h, step: 2);
-    debugPrint('🧪 Blur score: ${blurScore.toStringAsFixed(1)}');
-
-    if (blurScore < _BLUR_THRESHOLD) {
-      final retake = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          title: const Text('Looks blurry'),
-          content: Text(
-            'Sharp photos boost accuracy.\n\n'
-            'Blur score: ${blurScore.toStringAsFixed(1)} (threshold: $_BLUR_THRESHOLD)\n'
-            'Please retake.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Use Anyway'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Retake'),
-            ),
-          ],
-        ),
-      );
-      if (retake == true) return null;
-    }
-
-    rgba = ImageService.equalizeBrightnessFallback(rgba, w, h);
-    final processedPath =
-        await _encodeRgbaToTempJpeg(rgba, w, h, sourcePath: originalPath);
-    return processedPath;
-  }
-
-  Future<_RgbaImage?> _readRgbaFromPath(String path,
-      {int maxSide = 1280}) async {
-    try {
-      final bytes = await File(path).readAsBytes();
-      final img.Image? im = img.decodeImage(bytes);
-      if (im == null) return null;
-
-      img.Image work = im;
-      final int maxDim = im.width > im.height ? im.width : im.height;
-      if (maxDim > maxSide) {
-        final scale = maxSide / maxDim;
-        work = img.copyResize(im,
-            width: (im.width * scale).round(),
-            height: (im.height * scale).round(),
-            interpolation: img.Interpolation.average);
-      }
-
-      final rgba = work.convert(numChannels: 4); // ensure RGBA
-      final Uint8List out =
-          Uint8List.fromList(rgba.getBytes(order: img.ChannelOrder.rgba));
-      return _RgbaImage(out, rgba.width, rgba.height);
-    } catch (e) {
-      debugPrint('❌ readRgbaFromPath failed: $e');
-      return null;
-    }
-  }
-
-  Future<String> _encodeRgbaToTempJpeg(Uint8List rgba, int w, int h,
-      {required String sourcePath}) async {
-    final img.Image im = img.Image.fromBytes(
-      width: w,
-      height: h,
-      bytes: rgba.buffer,
-      numChannels: 4,
-      order: img.ChannelOrder.rgba,
-    );
-
-    final jpg = img.encodeJpg(im, quality: 95);
-    final Directory tmp = await getTemporaryDirectory();
-
-    final stem = p.basenameWithoutExtension(sourcePath);
-    final outPath = p.join(
-        tmp.path, '${stem}_proc_${DateTime.now().millisecondsSinceEpoch}.jpg');
-    final f = File(outPath);
-    await f.writeAsBytes(jpg, flush: true);
-    return outPath;
   }
 
   @override
   void dispose() {
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
-    _scanTimer?.cancel();
     _controller?.dispose();
     _controller = null;
     super.dispose();
@@ -460,19 +287,16 @@ class _FishScanCameraState extends State<FishScanCamera>
 
   @override
   Widget build(BuildContext context) {
-    if (!_isReady ||
-        _controller == null ||
-        !_controller!.value.isInitialized) {
+    if (!_isReady || _controller == null || !_controller!.value.isInitialized) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     const stepLabel = 'Capture the FRONT of the fish';
-
-    final statusColor = _runningInference || _scanning
+    final statusColor = _runningInference
         ? const Color(0xAA455A64)
-        : const Color(0xAA1565C0); // neutral/blue
+        : const Color(0xAA1565C0);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -480,21 +304,17 @@ class _FishScanCameraState extends State<FishScanCamera>
         children: [
           // Camera preview
           Positioned.fill(
-            child: _controller != null
-                ? FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _controller!.value.previewSize!.height,
-                      height: _controller!.value.previewSize!.width,
-                      child: CameraPreview(_controller!),
-                    ),
-                  )
-                : const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _controller!.value.previewSize!.height,
+                height: _controller!.value.previewSize!.width,
+                child: CameraPreview(_controller!),
+              ),
+            ),
           ),
 
-          // Top buttons
+          // Top buttons (close, flash, switch)
           Positioned(
             top: MediaQuery.of(context).padding.top + 10,
             left: 12,
@@ -509,7 +329,8 @@ class _FishScanCameraState extends State<FishScanCamera>
                 Row(
                   children: [
                     _TopButton(
-                      icon: _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                      icon:
+                          _isFlashOn ? Icons.flash_on : Icons.flash_off,
                       onTap: _toggleFlash,
                     ),
                     const SizedBox(width: 8),
@@ -537,41 +358,30 @@ class _FishScanCameraState extends State<FishScanCamera>
           ),
 
           // Live status hint
-          if (!_runningInference && !_scanning)
-            Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                margin: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 110,
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _hint,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Align(
+            alignment: Alignment.topCenter,
+            child: Container(
+              margin: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 110,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _hint,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-
-          // Scan animation
-          if (_scanning)
-            Positioned(
-              top: _scanLineY,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 3,
-                color: Colors.cyanAccent,
-              ),
-            ),
+          ),
 
           // Capture button
           Positioned(
@@ -586,9 +396,7 @@ class _FishScanCameraState extends State<FishScanCamera>
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () async {
-                        await _startScanAndCapture(auto: false);
-                      },
+                      onTap: _captureAndAnalyze,
                       customBorder: const CircleBorder(),
                       splashColor: Colors.white24,
                       highlightColor: Colors.white10,
@@ -654,7 +462,11 @@ class _FishScanCameraState extends State<FishScanCamera>
 class _TopButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _TopButton({required this.icon, required this.onTap});
+
+  const _TopButton({
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -667,15 +479,12 @@ class _TopButton extends StatelessWidget {
           color: Colors.black.withOpacity(0.35),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: Colors.white, size: 22),
+        child: Icon(
+          icon,
+          color: Colors.white,
+          size: 22,
+        ),
       ),
     );
   }
-}
-
-// Small RGBA holder
-class _RgbaImage {
-  final Uint8List rgba;
-  final int w, h;
-  _RgbaImage(this.rgba, this.w, this.h);
 }

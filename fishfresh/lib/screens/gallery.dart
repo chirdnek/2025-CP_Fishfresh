@@ -8,12 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
-import 'package:image/image.dart' as img; // for decoding bytes → img.Image
 
-// 🔹 PURE RESNET (no YOLO)
-import '../services/fish_classifier.dart';
-
-// 🔹 YOLO + RESNET PIPELINE
+// 🔹 YOLO + RESNET PIPELINE ONLY
 import '../services/fish_pipeline.dart';
 
 import 'fish_result_screen.dart';
@@ -79,9 +75,8 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
     final maxScroll = position.maxScrollExtent;
     final offset = position.pixels.clamp(0.0, maxScroll);
 
-    final progress = maxScroll == 0
-        ? 0.0
-        : (offset / maxScroll).clamp(0.0, 1.0); // 0..1
+    final progress =
+        maxScroll == 0 ? 0.0 : (offset / maxScroll).clamp(0.0, 1.0); // 0..1
 
     int index = (progress * (_all.length - 1)).round();
     index = index.clamp(0, _all.length - 1);
@@ -174,70 +169,7 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // MODE 1: PURE RESNET (no YOLO, full image)
-  // ---------------------------------------------------------------------------
-  Future<void> _runResNetOnly() async {
-    if (_selected.length != 1 || _processing) return;
-
-    setState(() => _processing = true);
-
-    final asset = _selected[0];
-    final file = await asset.file;
-    if (file == null) {
-      if (mounted) setState(() => _processing = false);
-      return;
-    }
-
-    try {
-      final bytes = await file.readAsBytes();
-
-      // Decode to img.Image for ResNet
-      final decoded = img.decodeImage(bytes);
-      if (decoded == null) {
-        if (mounted) setState(() => _processing = false);
-        return;
-      }
-
-      final classification =
-          await FishClassifier.instance.classify(decoded);
-
-      final species = classification.label.species;
-      final freshness = classification.label.freshness; // "Fresh" / "Not Fresh" / ""
-
-      final result = <String, dynamic>{
-        'mode': 'resnet_only',
-        'overall_species': species,
-        'overall_freshness': freshness,
-        'raw_classifier': {
-          'index': classification.label.index,
-          'label': classification.label.label,
-          'species': species,
-          'freshness': freshness,
-          'confidence': classification.confidence,
-        },
-        'detections': <dynamic>[],
-      };
-
-      if (!mounted) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => FishResultScreen(
-            imagePath: file.path,
-            species: species,
-            freshnessLabel: freshness.isEmpty ? 'Unknown' : freshness,
-            result: result,
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _processing = false);
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // MODE 2: YOLO + RESNET PIPELINE (same as camera)
+  // YOLO + RESNET PIPELINE (single mode, automatic)
   // ---------------------------------------------------------------------------
   Future<void> _runYoloResNet() async {
     if (_selected.length != 1 || _processing) return;
@@ -432,7 +364,7 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
                           ? 'Analyzing photo...'
                           : !hasSelection
                               ? 'Select 1 photo to analyze'
-                              : '1 selected — choose a mode below',
+                              : '1 photo selected — tap Analyze',
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ),
@@ -441,28 +373,6 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed:
-                          (hasSelection && !_processing) ? _runResNetOnly : null,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white54),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'ResNet only',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
                       onPressed:
@@ -480,7 +390,7 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
                         ),
                       ),
                       child: const Text(
-                        'YOLO + ResNet',
+                        'Analyze',
                         textAlign: TextAlign.center,
                       ),
                     ),

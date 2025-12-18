@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 import 'package:image/image.dart' as img;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart' as pw;
 import 'fish_scan_camera.dart';
 import 'package:camera/camera.dart';
 
@@ -62,7 +63,7 @@ class FishResultScreen extends StatelessWidget {
 
   /// From raw classifier label like "fresh__bigeye_scad"
   /// or "not_fresh__indian_mackerel" or "Fresh Bigeye Scad"
-  /// → "bigeye scad", "indian mackerel", etc.
+  /// → normalized slug like "bigeye scad", "indian mackerel", etc.
   String _extractSpecies(String raw) {
     String v = raw.toLowerCase().trim();
 
@@ -77,6 +78,29 @@ class FishResultScreen extends StatelessWidget {
 
     v = v.replaceAll('_', ' ').trim();
     return v;
+  }
+
+  /// Map normalized species slug to Tagalog common name only.
+  String _prettySpeciesFromSlug(String slug) {
+    final s = slug.trim().toLowerCase();
+
+    switch (s) {
+      case 'bigeye scad':
+        return 'Matambaka';
+      case 'fringescale sardinella':
+        return 'Tamban';
+      case 'shortfin scad':
+        return 'Galunggong';
+      case 'country maiden':
+        return 'Dalagang Bukid';
+      case 'indian mackerel':
+        return 'Kabalyas';
+      case 'yellowfin tuna':
+        return 'Yellowfin';
+      default:
+        // fallback: just nice title case if something unexpected appears
+        return _titleCase(slug);
+    }
   }
 
   /// Decide canonical freshness for one fish map from per_fish.
@@ -230,7 +254,6 @@ class FishResultScreen extends StatelessWidget {
   }
 
   // ===================== PDF / PRINT HELPERS =====================
-
   Future<Uint8List> _buildReportPdf() async {
     final pdf = pw.Document();
     final now = DateFormat('MMMM d, yyyy • h:mm a').format(DateTime.now());
@@ -267,153 +290,271 @@ class FishResultScreen extends StatelessWidget {
     if (speciesCounts.isNotEmpty) {
       final parts = <String>[];
       speciesCounts.forEach((slug, count) {
-        parts.add('$count ${_titleCase(slug)}');
+        parts.add('$count ${_prettySpeciesFromSlug(slug)}');
       });
       speciesSummary = parts.join(', ');
     } else {
-      speciesSummary = _titleCase(species);
+      speciesSummary = _prettySpeciesFromSlug(_extractSpecies(species));
     }
 
     final int? latencyMs = _asInt(result?['latency_ms']);
 
     // Load image for PDF (if available)
     pw.ImageProvider? pdfImage;
+    double displayWidth = 250;
+    double displayHeight = 200; // default fallback
+
     final file = File(imagePath);
     if (await file.exists()) {
       final bytes = await file.readAsBytes();
       pdfImage = pw.MemoryImage(bytes);
+
+      // use `image` package to get aspect ratio
+      final decoded = img.decodeImage(bytes);
+      if (decoded != null && decoded.width > 0 && decoded.height > 0) {
+        displayWidth = 250; // fixed width in PDF
+        displayHeight =
+            displayWidth * decoded.height.toDouble() / decoded.width.toDouble();
+      }
     }
 
     pdf.addPage(
       pw.MultiPage(
         margin: const pw.EdgeInsets.all(24),
-        build: (context) => [
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'FishFresh Scan Report',
-                    style: pw.TextStyle(
-                      fontSize: 20,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Text(
-                    now,
-                    style: const pw.TextStyle(fontSize: 10),
-                  ),
-                ],
-              ),
-              if (latencyMs != null)
+        build: (context) {
+          return [
+            // ── Header ──
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
                 pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Inference latency',
+                      'FishFresh Scan Report',
                       style: pw.TextStyle(
-                        fontSize: 10,
+                        fontSize: 20,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
+                    pw.SizedBox(height: 4),
                     pw.Text(
-                      '$latencyMs ms',
+                      now,
                       style: const pw.TextStyle(fontSize: 10),
                     ),
                   ],
                 ),
-            ],
-          ),
-          pw.SizedBox(height: 16),
-
-      if (pdfImage != null)
-  pw.Container(
-    height: 250,
-    decoration: pw.BoxDecoration(
-      borderRadius: pw.BorderRadius.circular(8),
-      border: pw.Border.all(width: 0.5),
-    ),
-    child: pw.ClipRRect(
-      horizontalRadius: 8,
-      verticalRadius: 8,
-      child: pw.Image(
-        pdfImage,
-        fit: pw.BoxFit.contain,
-      ),
-    ),
-  ),
-if (pdfImage != null) pw.SizedBox(height: 16),
-
-
-          pw.Text(
-            'Summary',
-            style: pw.TextStyle(
-              fontSize: 14,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          pw.SizedBox(height: 6),
-          pw.Bullet(
-            text: 'Overall freshness: $freshnessSummary',
-          ),
-          pw.Bullet(
-            text: 'Detected species: $speciesSummary',
-          ),
-          if (numFish > 0)
-            pw.Bullet(
-              text: 'Number of detected fish: $numFish',
-            ),
-          pw.SizedBox(height: 16),
-
-          if (numFish > 0)
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Model Summary (Per Fish)',
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
+                if (latencyMs != null)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'Inference latency',
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.Text(
+                        '$latencyMs ms',
+                        style: const pw.TextStyle(fontSize: 10),
+                      ),
+                    ],
                   ),
-                ),
-                pw.SizedBox(height: 6),
-                ...perFish.map((f) {
-                  final rawLabel = (f['species'] ?? '').toString();
-                  final sp = _titleCase(_extractSpecies(rawLabel));
-
-                  final canonical = _canonicalFreshness(f);
-                  String frText;
-                  if (canonical == 'fresh') {
-                    frText = 'Fresh';
-                  } else if (canonical == 'not fresh') {
-                    frText = 'Not Fresh';
-                  } else {
-                    frText = (f['freshness'] ?? '').toString();
-                  }
-
-                  final conf = _asDouble(f['cls_conf']) * 100.0;
-                  final id = _asInt(f['fish_box_id']) ?? 0;
-
-                  return pw.Bullet(
-                    text:
-                        'Fish #$id: $sp – $frText (${conf.toStringAsFixed(1)}%)',
-                  );
-                }).toList(),
               ],
             ),
+            pw.SizedBox(height: 16),
 
-          pw.SizedBox(height: 20),
-          pw.Divider(),
-          pw.SizedBox(height: 6),
-          pw.Text(
-            'Generated by FishFresh',
-            style: const pw.TextStyle(fontSize: 9),
-          ),
-        ],
+            // ── IMAGES: Original + With bounding boxes ──
+            if (pdfImage != null) ...[
+              pw.Text(
+                'Captured Image (Original)',
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Container(
+                width: displayWidth,
+                height: displayHeight,
+                decoration: pw.BoxDecoration(
+                  borderRadius: pw.BorderRadius.circular(8),
+                  border: pw.Border.all(width: 0.5),
+                ),
+                child: pw.ClipRRect(
+                  horizontalRadius: 8,
+                  verticalRadius: 8,
+                  child: pw.Image(
+                    pdfImage,
+                    fit: pw.BoxFit.cover,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 16),
+
+              pw.Text(
+                'Detected Fish (with bounding boxes)',
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Container(
+                width: displayWidth,
+                height: displayHeight,
+                decoration: pw.BoxDecoration(
+                  borderRadius: pw.BorderRadius.circular(8),
+                  border: pw.Border.all(width: 0.5),
+                ),
+                child: pw.Stack(
+                  children: [
+                    // background image
+                    pw.Positioned.fill(
+                      child: pw.ClipRRect(
+                        horizontalRadius: 8,
+                        verticalRadius: 8,
+                        child: pw.Image(
+                          pdfImage,
+                          fit: pw.BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    // bounding boxes (simple black border)
+                    ...perFish.map((f) {
+                      final box = f['box_norm'];
+                      if (box is! Map) return pw.SizedBox();
+
+                      final left = (box['left'] as num?)?.toDouble() ?? 0.0;
+                      final top = (box['top'] as num?)?.toDouble() ?? 0.0;
+                      final right = (box['right'] as num?)?.toDouble() ?? 0.0;
+                      final bottom = (box['bottom'] as num?)?.toDouble() ?? 0.0;
+
+                      final boxLeft = left * displayWidth;
+                      final boxTop = top * displayHeight;
+                      final boxWidth = (right - left) * displayWidth;
+                      final boxHeight = (bottom - top) * displayHeight;
+
+                      final id = _asInt(f['fish_box_id']) ?? 0;
+                      final canonical = _canonicalFreshness(f);
+
+                      // label text: "Fish #id (Fresh/Not Fresh)"
+                      String labelText = 'Fish #$id';
+                      if (canonical == 'fresh') {
+                        labelText += ' (Fresh)';
+                      } else if (canonical == 'not fresh') {
+                        labelText += ' (Not Fresh)';
+                      }
+
+                      return pw.Positioned(
+                        left: boxLeft,
+                        top: boxTop,
+                        child: pw.Container(
+                          width: boxWidth,
+                          height: boxHeight,
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(width: 2),
+                            borderRadius: pw.BorderRadius.circular(4),
+                          ),
+                          child: pw.Align(
+                            alignment: pw.Alignment.topLeft,
+                            child: pw.Container(
+                              margin: const pw.EdgeInsets.all(1),
+                              padding: const pw.EdgeInsets.symmetric(
+                                horizontal: 3,
+                                vertical: 1,
+                              ),
+                              color:
+                                  const pw.PdfColor(0.13, 0.13, 0.13, 1.0),
+                              child: pw.Text(
+                                labelText,
+                                style: const pw.TextStyle(
+                                  fontSize: 7,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 16),
+            ],
+
+            // ── Summary section ──
+            pw.Text(
+              'Summary',
+              style: pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Bullet(
+              text: 'Overall freshness: $freshnessSummary',
+            ),
+            pw.Bullet(
+              text: 'Detected species: $speciesSummary',
+            ),
+            if (numFish > 0)
+              pw.Bullet(
+                text: 'Number of detected fish: $numFish',
+              ),
+            pw.SizedBox(height: 16),
+
+            // ── Per fish details ──
+            if (numFish > 0)
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Model Summary (Per Fish)',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 6),
+                  ...perFish.map((f) {
+                    final rawLabel = (f['species'] ?? '').toString();
+                    final sp = _prettySpeciesFromSlug(
+                      _extractSpecies(rawLabel),
+                    );
+
+                    final canonical = _canonicalFreshness(f);
+                    String frText;
+                    if (canonical == 'fresh') {
+                      frText = 'Fresh';
+                    } else if (canonical == 'not fresh') {
+                      frText = 'Not Fresh';
+                    } else {
+                      frText = (f['freshness'] ?? '').toString();
+                    }
+
+                    final conf = _asDouble(f['cls_conf']) * 100.0;
+                    final id = _asInt(f['fish_box_id']) ?? 0;
+
+                    return pw.Bullet(
+                      text:
+                          'Fish #$id: $sp – $frText (${conf.toStringAsFixed(1)}%)',
+                    );
+                  }).toList(),
+                ],
+              ),
+
+            pw.SizedBox(height: 20),
+            pw.Divider(),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'Generated by FishFresh',
+              style: const pw.TextStyle(fontSize: 9),
+            ),
+          ];
+        },
       ),
     );
 
@@ -502,11 +643,11 @@ if (pdfImage != null) pw.SizedBox(height: 16),
     if (speciesCounts.isNotEmpty) {
       final parts = <String>[];
       speciesCounts.forEach((slug, count) {
-        parts.add('$count ${_titleCase(slug)}');
+        parts.add('$count ${_prettySpeciesFromSlug(slug)}');
       });
       speciesSummary = parts.join(', ');
     } else {
-      speciesSummary = _titleCase(species);
+      speciesSummary = _prettySpeciesFromSlug(_extractSpecies(species));
     }
 
     // per-box confidences
@@ -515,7 +656,7 @@ if (pdfImage != null) pw.SizedBox(height: 16),
       final f = perFish[i];
 
       final rawLabel = (f['species'] ?? '').toString();
-      final sp = _titleCase(_extractSpecies(rawLabel));
+      final sp = _prettySpeciesFromSlug(_extractSpecies(rawLabel));
 
       final canonical = _canonicalFreshness(f);
       String frText;
@@ -736,9 +877,9 @@ if (pdfImage != null) pw.SizedBox(height: 16),
 
 /// View-model for drawing each box
 class _BoxVisual {
-  final ui.Rect normRect;   // normalized 0..1 rect from pipeline
-  final int id;             // fish_box_id
-  final String freshness;   // 'fresh' | 'not fresh' | ''
+  final ui.Rect normRect; // normalized 0..1 rect from pipeline
+  final int id; // fish_box_id
+  final String freshness; // 'fresh' | 'not fresh' | ''
 
   const _BoxVisual({
     required this.normRect,

@@ -708,7 +708,7 @@ class _HomePageState extends State<HomePage> {
             // koi fish – pushed further right
             Positioned(
               top: 0,
-              right: -70, // more off-screen to the right
+              right: -80, // more off-screen to the right
               child: Image.asset(
                 'assets/images/fish_koi.png',
                 width: 260,

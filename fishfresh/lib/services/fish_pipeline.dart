@@ -167,6 +167,7 @@ class FishPipeline {
   // ---------------------------------------------------------------------------
   // Expand bounding box slightly for UI (pretty boxes)
   // ---------------------------------------------------------------------------
+
   Rect _expandForUi(Rect r, double W, double H) {
     // small margin → more "normal" boxes
     const double marginFracX = 0.03;
@@ -186,9 +187,12 @@ class FishPipeline {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
+
   // ---------------------------------------------------------------------------
   // Expand bounding box for crops (more context)
   // ---------------------------------------------------------------------------
+
+
   Rect _expandForCrop(Rect r, double W, double H) {
     const double marginFracX = 0.08;
     const double marginFracY = 0.08;
