@@ -13,6 +13,10 @@ import 'fish_classifier.dart';
 
 import 'dart:io';
 
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+
 /// Modes:
 ///  - auto   : if YOLO finds >=2 boxes → tray; else → single crop
 ///  - single : always single-fish crop (YOLO bbox if available, else full-frame)
@@ -628,19 +632,24 @@ class FishPipeline {
   }
 
   Future<void> _debugSaveCrop(img.Image crop, String tag) async {
-    // Toggle this true only while debugging.
-    const bool DEBUG_SAVE_CROPS = true;
-    // ignore: dead_code
+    final bool DEBUG_SAVE_CROPS = true;
     if (!DEBUG_SAVE_CROPS) return;
 
-    final dir = Directory('/storage/emulated/0/Download');
-    final String path =
-      '${dir.path}/fishfresh_${DateTime.now().millisecondsSinceEpoch}_$tag.jpg';
+    // Encode to JPG bytes
+    final Uint8List jpgBytes = Uint8List.fromList(img.encodeJpg(crop, quality: 90));
 
-    final bytes = img.encodeJpg(crop, quality: 90);
-    await File(path).writeAsBytes(bytes, flush: true);
+    // Request permission (Android 13+ uses Photos permission; older may use Storage)
+    // Request both to avoid device/version differences.
+    await Permission.photos.request();
+    await Permission.storage.request();
 
-    // Use print so it shows even if debugPrint throttles
-    print('FishPipeline DEBUG: saved crop -> $path');
+    // Save to Gallery
+    final result = await ImageGallerySaver.saveImage(
+      jpgBytes,
+      quality: 90,
+      name: 'fishfresh_${DateTime.now().millisecondsSinceEpoch}_$tag',
+    );
+
+    print('FishPipeline DEBUG: saved crop to Gallery ($tag) -> $result');
   }
 }
