@@ -218,6 +218,21 @@ class FishPipeline {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
+  Rect _padRect(Rect r, double W, double H, {double padX = 0.06, double padY = 0.14}) {
+  final dx = r.width * padX;
+  final dy = r.height * padY;
+
+  final left = (r.left - dx).clamp(0.0, W);
+  final top = (r.top - dy).clamp(0.0, H);
+  final right = (r.right + dx).clamp(0.0, W);
+  final bottom = (r.bottom + dy).clamp(0.0, H);
+
+  if (right - left < 2 || bottom - top < 2) return r;
+  return Rect.fromLTRB(left, top, right, bottom);
+}
+
+
+
   // ---------------------------------------------------------------------------
   // Make a square crop around a bbox (for classifier only)
   // ---------------------------------------------------------------------------
@@ -553,11 +568,8 @@ class FishPipeline {
       // YOLO box → pretty UI rect
       final Rect uiRect = _expandForUi(d.box, imgW, imgH);
 
-      // For classifier: slightly bigger square around expanded crop region
-      final Rect expandedForCrop =
-          _expandForCrop(d.box, imgW, imgH);
-      final Rect cropRect =
-          _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
+      // For classifier: padded RECT crop (prevents grabbing nearby fish)
+      final Rect cropRect = _padRect(d.box, imgW, imgH, padX: 0.06, padY: 0.14);
 
       final double areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
       if (areaFrac > 0.70) {
@@ -607,6 +619,21 @@ class FishPipeline {
         'det_score': detScore,
       });
     }
+
+    if (perFish.isEmpty) {
+      debugPrint('FishPipeline: perFish empty (no valid tray crops). Fallback to single/full-frame.');
+
+      final cls = await FishClassifier.instance.classify(fullImg);
+
+      return {
+        'latency_ms': sw.elapsedMilliseconds,
+        'per_fish': const [],
+        'overall_species': cls.label.species,
+        'overall_freshness': cls.label.freshness,
+        'scan_mode': 'tray-empty-fallback',
+      };
+    }
+
 
     // -----------------------------------------------------------------------
     // 5) TRAY-LEVEL SUMMARY (no species snapping)
