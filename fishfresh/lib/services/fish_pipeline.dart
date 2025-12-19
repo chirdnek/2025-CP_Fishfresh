@@ -505,11 +505,7 @@ class FishPipeline {
     }
 
     // Optional: cap number of tray detections
-    const int maxTrayDetections = 8;
-    if (trayCandidates.length > maxTrayDetections) {
-      trayCandidates.sort((a, b) => b.score.compareTo(a.score));
-      trayCandidates = trayCandidates.sublist(0, maxTrayDetections);
-    }
+    
 
     // 4) Crop + classify per fish (tray mode)
     final perFish = <Map<String, dynamic>>[];
