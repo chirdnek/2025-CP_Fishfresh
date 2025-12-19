@@ -633,8 +633,9 @@ class FishPipeline {
     // ignore: dead_code
     if (!DEBUG_SAVE_CROPS) return;
 
+    final dir = Directory('/storage/emulated/0/Download');
     final String path =
-        '${Directory.systemTemp.path}/fishfresh_${DateTime.now().millisecondsSinceEpoch}_$tag.jpg';
+      '${dir.path}/fishfresh_${DateTime.now().millisecondsSinceEpoch}_$tag.jpg';
 
     final bytes = img.encodeJpg(crop, quality: 90);
     await File(path).writeAsBytes(bytes, flush: true);
