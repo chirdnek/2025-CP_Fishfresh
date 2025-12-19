@@ -340,7 +340,10 @@ class FishPipeline {
 
     // Sort by score and keep bestDet for UI / single mode
     merged.sort((a, b) => b.score.compareTo(a.score));
-    final bestDet = merged.isNotEmpty ? merged.first : null;
+    final filteredForSingle = _filterSingle(merged, imgW, imgH);
+    final bestDet = filteredForSingle.isNotEmpty
+        ? (filteredForSingle..sort((a,b)=>b.score.compareTo(a.score))).first
+        : (merged.isNotEmpty ? merged.first : null);
 
     // 3) Tray candidates (for multi-fish)
     var trayCandidates =
@@ -380,6 +383,36 @@ class FishPipeline {
         final Rect expandedForCrop =
             _expandForCrop(bestDet.box, imgW, imgH);
         cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
+        
+        final areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
+        if (areaFrac > 0.90) {
+          debugPrint('FishPipeline: crop too large ($areaFrac), using full image');
+          uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
+          cropRect = uiRect;
+          cropImage = fullImg;
+
+          // optional: save proof that YOLO box became full-frame
+          await _debugSaveCrop(cropImage, 'single_FULLFRAME');
+
+        } else {
+          final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+          final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+          final int right = cropRect.right.ceil().clamp(left + 1, fullImg.width);
+          final int bottom = cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+
+          final int w = (right - left).clamp(1, fullImg.width);
+          final int h = (bottom - top).clamp(1, fullImg.height);
+
+          cropImage = img.copyCrop(
+            fullImg,
+            x: left,
+            y: top,
+            width: w,
+            height: h,
+          );
+          await _debugSaveCrop(cropImage, 'single');
+        }
+
 
         final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
         final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -451,24 +484,27 @@ class FishPipeline {
             _expandForCrop(bestDet.box, imgW, imgH);
         cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
-        final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
-        final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
-        final int right =
-            cropRect.right.ceil().clamp(left + 1, fullImg.width);
-        final int bottom =
-            cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+        final double areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
+        if (areaFrac > 0.90) {
+            debugPrint(
+              'FishPipeline: single-fallback crop too large (${(areaFrac * 100).toStringAsFixed(1)}%), using full image'
+            );
+            uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
+            cropRect = uiRect;
+            cropImage = fullImg;
+            } else {
+            final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+            final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+            final int right = cropRect.right.ceil().clamp(left + 1, fullImg.width);
+            final int bottom = cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
 
-        final int w = (right - left).clamp(1, fullImg.width);
-        final int h = (bottom - top).clamp(1, fullImg.height);
+            final int w = (right - left).clamp(1, fullImg.width);
+            final int h = (bottom - top).clamp(1, fullImg.height);
 
-        cropImage = img.copyCrop(
-          fullImg,
-          x: left,
-          y: top,
-          width: w,
-          height: h,
-        );
-      } else {
+            cropImage = img.copyCrop(fullImg, x: left, y: top, width: w, height: h);
+         }
+
+        } else {
         uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
         cropRect = uiRect;
         cropImage = fullImg;
@@ -522,6 +558,14 @@ class FishPipeline {
           _expandForCrop(d.box, imgW, imgH);
       final Rect cropRect =
           _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
+
+      final double areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
+      if (areaFrac > 0.70) {
+        debugPrint(
+          'FishPipeline: tray crop too large (${(areaFrac * 100).toStringAsFixed(1)}%), skipping box #$boxCounter'
+        );
+        continue; // skip this bad detection
+      }
 
       final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
       final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
