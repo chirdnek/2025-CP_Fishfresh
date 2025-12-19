@@ -125,8 +125,7 @@ class FishClassifier {
     if (!_isInited) await ensureInited();
 
     // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
-    final pre = _resizeShortSideThenCenterCrop(crop);
-
+    final pre = _padToSquareThenResize(crop);
     // 2) Run model
     final numClasses = _outTensor.shape.last;
     final inputTensor = [_imageToFloat32(pre)];
@@ -197,6 +196,32 @@ class FishClassifier {
     }
     return cropped;
   }
+
+      img.Image _padToSquareThenResize(img.Image im) {
+      final int side = _side;
+      final int s = math.max(im.width, im.height);
+
+      // background = average of the 4 corner pixels (usually your tray/tile color)
+      final p1 = im.getPixel(0, 0);
+      final p2 = im.getPixel(im.width - 1, 0);
+      final p3 = im.getPixel(0, im.height - 1);
+      final p4 = im.getPixel(im.width - 1, im.height - 1);
+
+      final int r = ((p1.r + p2.r + p3.r + p4.r) / 4).round();
+      final int g = ((p1.g + p2.g + p3.g + p4.g) / 4).round();
+      final int b = ((p1.b + p2.b + p3.b + p4.b) / 4).round();
+
+      final canvas = img.Image(width: s, height: s);
+      img.fill(canvas, color: img.ColorRgb8(r, g, b));
+
+      final int ox = ((s - im.width) / 2).round();
+      final int oy = ((s - im.height) / 2).round();
+      img.compositeImage(canvas, im, dstX: ox, dstY: oy);
+
+      return img.copyResize(canvas, width: side, height: side);
+    }
+
+
 
   /// Convert image to [H][W][3] float32 with ImageNet normalization.
   List<List<List<double>>> _imageToFloat32(img.Image image) {

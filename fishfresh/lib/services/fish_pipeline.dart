@@ -394,21 +394,19 @@ class FishPipeline {
         // nice-looking UI box (rectangular, small margin)
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
 
-        // bigger square for classifier
-        final Rect expandedForCrop =
-            _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
-        
-        final areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
-        if (areaFrac > 0.90) {
-          debugPrint('FishPipeline: crop too large ($areaFrac), using full image');
+        // classifier crop: tight rect + padding (NOT square here)
+        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.06, padY: 0.14);
+
+        // decide fallback based on the ORIGINAL YOLO box (not the padded crop)
+        final detAreaFrac =
+            (bestDet.box.width * bestDet.box.height) / (imgW * imgH);
+
+        if (detAreaFrac > 0.98) {
+          debugPrint('FishPipeline: YOLO box too large ($detAreaFrac), using full image');
           uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
           cropRect = uiRect;
           cropImage = fullImg;
-
-          // optional: save proof that YOLO box became full-frame
           await _debugSaveCrop(cropImage, 'single_FULLFRAME');
-
         } else {
           final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
           final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -427,26 +425,6 @@ class FishPipeline {
           );
           await _debugSaveCrop(cropImage, 'single');
         }
-
-
-        final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
-        final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
-        final int right =
-            cropRect.right.ceil().clamp(left + 1, fullImg.width);
-        final int bottom =
-            cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
-
-        final int w = (right - left).clamp(1, fullImg.width);
-        final int h = (bottom - top).clamp(1, fullImg.height);
-
-        cropImage = img.copyCrop(
-          fullImg,
-          x: left,
-          y: top,
-          width: w,
-          height: h,
-        );
-        await _debugSaveCrop(cropImage, 'single');
       } else {
         uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
         cropRect = uiRect;
@@ -481,6 +459,7 @@ class FishPipeline {
         'overall_freshness': freshness,
         'scan_mode': resolvedMode,
       };
+
     }
 
     // -----------------------------------------------------------------------
