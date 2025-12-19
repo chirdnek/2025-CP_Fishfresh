@@ -4,7 +4,7 @@
 // ignore_for_file: unused_import, unnecessary_null_comparison, unnecessary_cast, unnecessary_import, unnecessary_brace_in_string_interps, unused_element, unintended_html_in_doc_comment
 
 import 'dart:typed_data';
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui' show Rect;
 
 import 'package:flutter/foundation.dart'; // debugPrint
@@ -25,6 +25,48 @@ class FishDetection {
     required this.classId,
   });
 }
+
+class _LetterboxInfo {
+  final img.Image image; // size x size
+  final double scale;    // gain
+  final int padX;
+  final int padY;
+  _LetterboxInfo({
+    required this.image,
+    required this.scale,
+    required this.padX,
+    required this.padY,
+  });
+}
+
+_LetterboxInfo _letterbox(img.Image src, int size) {
+  final int w = src.width;
+  final int h = src.height;
+
+  final double gain = math.min(size / w, size / h);
+  final int newW = (w * gain).round();
+  final int newH = (h * gain).round();
+
+  final int padX = ((size - newW) / 2).round();
+  final int padY = ((size - newH) / 2).round();
+
+  final img.Image resized = img.copyResize(
+    src,
+    width: newW,
+    height: newH,
+    interpolation: img.Interpolation.linear,
+  );
+
+  final img.Image out = img.Image(width: size, height: size);
+
+  // Padding color 114 like Ultralytics
+  img.fill(out, color: img.ColorRgb8(114, 114, 114));
+
+  img.compositeImage(out, resized, dstX: padX, dstY: padY);
+
+  return _LetterboxInfo(image: out, scale: gain, padX: padX, padY: padY);
+}
+
 
 class FishDetector {
   FishDetector._private();
@@ -77,13 +119,9 @@ class FishDetector {
     final origW = original.width;
     final origH = original.height;
 
-    // Resize to YOLO input size (square)
-    final resized = img.copyResize(
-      original,
-      width: _config.inputSize,
-      height: _config.inputSize,
-      interpolation: img.Interpolation.nearest,
-    );
+    // Letterbox resize (keep aspect ratio + pad) — matches Ultralytics behavior
+    final _LetterboxInfo lb = _letterbox(original, _config.inputSize);
+    final img.Image resized = lb.image;
 
     // ---------------- INPUT SHAPE ----------------
     final inTensors = _interpreter!.getInputTensors();
@@ -167,6 +205,7 @@ class FishDetector {
 
     final output = _allocOutputBuffer(outShape);
 
+
     try {
       // Single input, single output
       _interpreter!.run(inputTensor, output);
@@ -175,9 +214,11 @@ class FishDetector {
       return [];
     }
 
+    
+
     // Parse detections
     try {
-      final parsed = _parseYolo(output, origW, origH);
+      final parsed = _parseYolo(output, origW, origH, lb);
       debugPrint(
         'FishDetector: parsed ${parsed.length} detections '
         '(conf >= ${_config.confThreshold}).',
@@ -273,7 +314,7 @@ class FishDetector {
 
     return build(0, shape);
   }
-     List<FishDetection> _parseYolo(Object rawOutput, int origW, int origH) {
+    List<FishDetection> _parseYolo(Object rawOutput, int origW, int origH, _LetterboxInfo lb) {
     if (rawOutput is! List) {
       debugPrint(
           'FishDetector: rawOutput is not a List (got ${rawOutput.runtimeType}).');
@@ -286,71 +327,99 @@ class FishDetector {
       return [];
     }
 
-    // Expect [1, C, N] or [C, N]
-    List channelsList;
+    // Expect [1, C, N] or [1, N, C] (or without the leading 1)
+    List matrix;
     if (out.length == 1 && out.first is List) {
-      channelsList = out.first as List; // e.g. [C][N]
+      matrix = out.first as List;
     } else {
-      channelsList = out; // already [C][N]
+      matrix = out;
     }
 
-    if (channelsList.isEmpty || channelsList.first is! List) {
-      debugPrint('FishDetector: channelsList malformed.');
+    if (matrix.isEmpty || matrix.first is! List) {
+      debugPrint('FishDetector: output matrix malformed.');
       return [];
     }
 
-    final List<List> ch = channelsList.cast<List>();
-    final int channels = ch.length;
-    final int numBoxes = ch.first.length;
+    final List<List<double>> m = matrix
+        .map((row) => (row as List).map((v) => (v as num).toDouble()).toList())
+        .toList();
 
-    debugPrint('FishDetector: channels=$channels, numBoxes=$numBoxes');
+    final int dim0 = m.length;       // either C or N
+    final int dim1 = m.first.length; // either N or C
+
+    // Heuristic: channels is usually small (e.g., 605), boxes is large (e.g., 8400)
+    final bool cFirst = dim0 < dim1; // channels is usually smaller than numBoxes
+    final int channels = cFirst ? dim0 : dim1;
+    final int numBoxes = cFirst ? dim1 : dim0;
+
+    // Access function: value at channel c, box j
+    double at(int c, int j) => cFirst ? m[c][j] : m[j][c];
+
+    debugPrint('FishDetector: parsed layout = ${cFirst ? "[C][N]" : "[N][C]"} '
+        'channels=$channels, numBoxes=$numBoxes');
 
     if (channels < 5) {
       debugPrint('FishDetector: channels < 5, cannot parse.');
       return [];
     }
 
-    // Layout we assume (same as your old working version):
-    // ch[0] = x, ch[1] = y, ch[2] = w, ch[3] = h (all normalized 0..1)
-    // ch[4] = obj or some extra value (we IGNORE this)
-    // ch[5..] = per-class confidence scores (already "good" final scores)
-    const int clsOffset = 5;
+    // YOLOv8 TFLite is typically [x,y,w,h, cls...]
+    const int clsOffset = 4;
     final int numClasses = channels - clsOffset;
 
-    // Log one box for sanity
+    if (numClasses <= 0) {
+      debugPrint('FishDetector: numClasses <= 0 (channels=$channels).');
+      return [];
+    }
+
     if (numBoxes > 0) {
-      const int j = 0;
       debugPrint(
-        'FishDetector: sample box[0] '
-        'x=${ch[0][j]}, y=${ch[1][j]}, w=${ch[2][j]}, h=${ch[3][j]}, raw4=${ch[4][j]}',
+        'FishDetector: sample x=${at(0,0)} y=${at(1,0)} w=${at(2,0)} h=${at(3,0)}',
       );
     }
+
 
     final List<FishDetection> results = [];
     double globalMaxCls = 0.0;
 
+
+
     for (int j = 0; j < numBoxes; j++) {
       // Normalized coords 0..1 → scale to original image
-      final double xNorm = (ch[0][j] as num).toDouble();
-      final double yNorm = (ch[1][j] as num).toDouble();
-      final double wNorm = (ch[2][j] as num).toDouble();
-      final double hNorm = (ch[3][j] as num).toDouble();
+      final double xRaw = at(0, j);
+      final double yRaw = at(1, j);
+      final double wRaw = at(2, j);
+      final double hRaw = at(3, j);
 
-      if (!xNorm.isFinite || !yNorm.isFinite || !wNorm.isFinite || !hNorm.isFinite) {
+      if (!xRaw.isFinite || !yRaw.isFinite || !wRaw.isFinite || !hRaw.isFinite) {
         continue;
       }
-      if (wNorm <= 0 || hNorm <= 0) continue;
+      if (wRaw <= 0 || hRaw <= 0) continue;
 
-      final double xc = xNorm * origW;
-      final double yc = yNorm * origH;
-      final double w  = wNorm * origW;
-      final double h  = hNorm * origH;
+      final double inSize = _config.inputSize.toDouble();
+
+      // Some exports output 0..1, others output pixels (0..inSize).
+      final bool isNorm =
+          (xRaw <= 1.5 && yRaw <= 1.5 && wRaw <= 1.5 && hRaw <= 1.5);
+
+      final double xcIn = isNorm ? xRaw * inSize : xRaw;
+      final double ycIn = isNorm ? yRaw * inSize : yRaw;
+      final double wIn  = isNorm ? wRaw * inSize : wRaw;
+      final double hIn  = isNorm ? hRaw * inSize : hRaw;
+
+
+      // undo padding + scale
+      final double gain = lb.scale;
+      final double xc = (xcIn - lb.padX) / gain;
+      final double yc = (ycIn - lb.padY) / gain;
+      final double w  = wIn / gain;
+      final double h  = hIn / gain;
 
       // max class score (we treat this as the final confidence)
       double bestCls = 0.0;
       int bestClassIdx = 0;
       for (int c = 0; c < numClasses; c++) {
-        final double s = (ch[clsOffset + c][j] as num).toDouble();
+        final double s = at(clsOffset + c, j);
         if (s > bestCls) {
           bestCls = s;
           bestClassIdx = c;

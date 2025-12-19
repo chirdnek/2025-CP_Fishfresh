@@ -1,6 +1,6 @@
 // lib/services/fish_pipeline.dart
 // YOLOv8 TFLite + ResNet pipeline
-// ignore_for_file: avoid_print, constant_identifier_names, no_leading_underscores_for_local_identifiers, unnecessary_import, unused_element
+// ignore_for_file: avoid_print, constant_identifier_names, no_leading_underscores_for_local_identifiers, unnecessary_import, unused_element, non_constant_identifier_names
 
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
@@ -10,6 +10,13 @@ import 'package:image/image.dart' as img;
 
 import 'fish_detector.dart';
 import 'fish_classifier.dart';
+
+// ignore: unused_import
+import 'dart:io';
+
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 /// Modes:
 ///  - auto   : if YOLO finds >=2 boxes → tray; else → single crop
@@ -194,8 +201,8 @@ class FishPipeline {
 
 
   Rect _expandForCrop(Rect r, double W, double H) {
-    const double marginFracX = 0.08;
-    const double marginFracY = 0.08;
+    const double marginFracX = 0.12;
+    const double marginFracY = 0.12;
 
     final double ex = r.width * marginFracX;
     final double ey = r.height * marginFracY;
@@ -265,7 +272,15 @@ class FishPipeline {
   }) async {
     await ensureInited();
 
-    final fullImg = img.decodeImage(bytes);
+    img.Image? fullImg = img.decodeImage(bytes);
+    if (fullImg == null) throw Exception("Decode failed");
+
+    // Apply EXIF orientation to pixels (prevents rotated/offset crops)
+    try {
+      fullImg = img.bakeOrientation(fullImg);
+    } catch (_) {
+      // If bakeOrientation isn't available in your image package version, ignore for now.
+    }
     if (fullImg == null) {
       throw Exception("Decode failed");
     }
@@ -275,12 +290,19 @@ class FishPipeline {
 
     // 1) Run detector
     final sw = Stopwatch()..start();
-    final rawDetections = await FishDetector.instance.detect(bytes);
+  
+    var rawDetections = await FishDetector.instance.detect(bytes);
+    
+    final rawCount = rawDetections.length;
+
+    const int fishClassId = 192; // your known fish class id
+    rawDetections = rawDetections.where((d) => d.classId == fishClassId).toList();
+    print('FishPipeline: raw YOLO detections = $rawCount');
+    print('FishPipeline: fish-only detections = ${rawDetections.length}');
     sw.stop();
 
-    debugPrint(
-      'FishPipeline: raw YOLO detections = ${rawDetections.length} (requested mode=${mode.name})',
-    );
+
+
 
     // ---- If YOLO completely fails, fall back to full-frame ResNet (single) ----
     if (rawDetections.isEmpty && mode != ScanMode.tray) {
@@ -357,7 +379,7 @@ class FishPipeline {
         // bigger square for classifier
         final Rect expandedForCrop =
             _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
         final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
         final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -376,6 +398,7 @@ class FishPipeline {
           width: w,
           height: h,
         );
+        await _debugSaveCrop(cropImage, 'single');
       } else {
         uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
         cropRect = uiRect;
@@ -426,7 +449,7 @@ class FishPipeline {
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
         final Rect expandedForCrop =
             _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
         final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
         final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -481,12 +504,7 @@ class FishPipeline {
       };
     }
 
-    // Optional: cap number of tray detections
-    const int maxTrayDetections = 8;
-    if (trayCandidates.length > maxTrayDetections) {
-      trayCandidates.sort((a, b) => b.score.compareTo(a.score));
-      trayCandidates = trayCandidates.sublist(0, maxTrayDetections);
-    }
+
 
     // 4) Crop + classify per fish (tray mode)
     final perFish = <Map<String, dynamic>>[];
@@ -502,7 +520,7 @@ class FishPipeline {
       final Rect expandedForCrop =
           _expandForCrop(d.box, imgW, imgH);
       final Rect cropRect =
-          _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+          _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
       final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
       final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -521,6 +539,7 @@ class FishPipeline {
         width: w,
         height: h,
       );
+      await _debugSaveCrop(crop, 'tray_$boxCounter');
 
       final cls = await FishClassifier.instance.classify(crop);
 
@@ -606,5 +625,27 @@ class FishPipeline {
       'overall_freshness': overallFreshness,
       'scan_mode': resolvedMode,
     };
+  }
+
+  Future<void> _debugSaveCrop(img.Image crop, String tag) async {
+    final bool DEBUG_SAVE_CROPS = true;
+    // ignore: dead_code
+    if (!DEBUG_SAVE_CROPS) return;
+
+    // Encode to JPG bytes
+    final Uint8List jpgBytes = Uint8List.fromList(img.encodeJpg(crop, quality: 90));
+
+    // Request permission (Android 13+ uses Photos permission; older may use Storage)
+    // Request both to avoid device/version differences.
+    await Permission.photos.request();
+    await Permission.storage.request();
+
+    // Save to Gallery
+    final result = await ImageGallerySaverPlus.saveImage(
+      jpgBytes,
+      quality: 90,
+      name: 'fishfresh_${DateTime.now().millisecondsSinceEpoch}_$tag',
+    );
+    print('FishPipeline DEBUG: saved crop to Gallery ($tag) -> $result');
   }
 }
