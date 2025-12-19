@@ -13,7 +13,7 @@ import 'fish_classifier.dart';
 
 import 'dart:io';
 
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 
@@ -644,12 +644,11 @@ class FishPipeline {
     await Permission.storage.request();
 
     // Save to Gallery
-    final result = await ImageGallerySaver.saveImage(
+    final result = await ImageGallerySaverPlus.saveImage(
       jpgBytes,
       quality: 90,
       name: 'fishfresh_${DateTime.now().millisecondsSinceEpoch}_$tag',
     );
-
     print('FishPipeline DEBUG: saved crop to Gallery ($tag) -> $result');
   }
 }
