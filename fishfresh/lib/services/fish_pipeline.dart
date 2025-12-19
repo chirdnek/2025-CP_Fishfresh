@@ -11,6 +11,8 @@ import 'package:image/image.dart' as img;
 import 'fish_detector.dart';
 import 'fish_classifier.dart';
 
+import 'dart:io';
+
 /// Modes:
 ///  - auto   : if YOLO finds >=2 boxes → tray; else → single crop
 ///  - single : always single-fish crop (YOLO bbox if available, else full-frame)
@@ -194,8 +196,8 @@ class FishPipeline {
 
 
   Rect _expandForCrop(Rect r, double W, double H) {
-    const double marginFracX = 0.08;
-    const double marginFracY = 0.08;
+    const double marginFracX = 0.12;
+    const double marginFracY = 0.12;
 
     final double ex = r.width * marginFracX;
     final double ey = r.height * marginFracY;
@@ -283,16 +285,18 @@ class FishPipeline {
 
     // 1) Run detector
     final sw = Stopwatch()..start();
+  
     var rawDetections = await FishDetector.instance.detect(bytes);
+    
+    final rawCount = rawDetections.length;
+
+    const int fishClassId = 192; // your known fish class id
+    rawDetections = rawDetections.where((d) => d.classId == fishClassId).toList();
+    print('FishPipeline: raw YOLO detections = $rawCount');
+    print('FishPipeline: fish-only detections = ${rawDetections.length}');
     sw.stop();
 
-    debugPrint(
-      'FishPipeline: raw YOLO detections = ${rawDetections.length} (requested mode=${mode.name})',
-    );
-    // Keep ONLY the YOLO "Fish" class (matches your notebook classes=[fish_id])
-    const int fishClassId = 192;
-    rawDetections = rawDetections.where((d) => d.classId == fishClassId).toList();
-    debugPrint('FishPipeline: fish-only detections = ${rawDetections.length}');
+
 
 
     // ---- If YOLO completely fails, fall back to full-frame ResNet (single) ----
@@ -370,7 +374,7 @@ class FishPipeline {
         // bigger square for classifier
         final Rect expandedForCrop =
             _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
         final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
         final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -389,6 +393,7 @@ class FishPipeline {
           width: w,
           height: h,
         );
+        await _debugSaveCrop(cropImage, 'single');
       } else {
         uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
         cropRect = uiRect;
@@ -439,7 +444,7 @@ class FishPipeline {
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
         final Rect expandedForCrop =
             _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
         final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
         final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -515,7 +520,7 @@ class FishPipeline {
       final Rect expandedForCrop =
           _expandForCrop(d.box, imgW, imgH);
       final Rect cropRect =
-          _squareAround(expandedForCrop, imgW, imgH, scale: 1.20);
+          _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
       final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
       final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -534,6 +539,7 @@ class FishPipeline {
         width: w,
         height: h,
       );
+      await _debugSaveCrop(crop, 'tray_$boxCounter');
 
       final cls = await FishClassifier.instance.classify(crop);
 
@@ -619,5 +625,21 @@ class FishPipeline {
       'overall_freshness': overallFreshness,
       'scan_mode': resolvedMode,
     };
+  }
+
+  Future<void> _debugSaveCrop(img.Image crop, String tag) async {
+    // Toggle this true only while debugging.
+    const bool DEBUG_SAVE_CROPS = true;
+    // ignore: dead_code
+    if (!DEBUG_SAVE_CROPS) return;
+
+    final String path =
+        '${Directory.systemTemp.path}/fishfresh_${DateTime.now().millisecondsSinceEpoch}_$tag.jpg';
+
+    final bytes = img.encodeJpg(crop, quality: 90);
+    await File(path).writeAsBytes(bytes, flush: true);
+
+    // Use print so it shows even if debugPrint throttles
+    print('FishPipeline DEBUG: saved crop -> $path');
   }
 }
