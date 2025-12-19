@@ -11,6 +11,7 @@ import 'package:image/image.dart' as img;
 import 'fish_detector.dart';
 import 'fish_classifier.dart';
 
+// ignore: unused_import
 import 'dart:io';
 
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
@@ -633,6 +634,7 @@ class FishPipeline {
 
   Future<void> _debugSaveCrop(img.Image crop, String tag) async {
     final bool DEBUG_SAVE_CROPS = true;
+    // ignore: dead_code
     if (!DEBUG_SAVE_CROPS) return;
 
     // Encode to JPG bytes

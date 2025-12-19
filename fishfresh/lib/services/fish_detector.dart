@@ -348,7 +348,7 @@ class FishDetector {
     final int dim1 = m.first.length; // either N or C
 
     // Heuristic: channels is usually small (e.g., 605), boxes is large (e.g., 8400)
-    final bool cFirst = (dim0 <= 200 && dim1 > 200); // [C][N]
+    final bool cFirst = dim0 < dim1; // channels is usually smaller than numBoxes
     final int channels = cFirst ? dim0 : dim1;
     final int numBoxes = cFirst ? dim1 : dim0;
 
