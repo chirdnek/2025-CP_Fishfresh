@@ -35,10 +35,7 @@ class FishClassification {
   final FishClassLabel label;
   final double confidence; // probability of the winning class (softmax)
 
-  FishClassification({
-    required this.label,
-    required this.confidence,
-  });
+  FishClassification({required this.label, required this.confidence});
 }
 
 class FishClassifier {
@@ -74,7 +71,9 @@ class FishClassifier {
 
     // 1) Load labels (must match numClasses from the model)
     _labels = await _loadLabels(_labelsAsset);
-    debugPrint('🔖 FishClassifier: loaded ${_labels.length} labels from $_labelsAsset');
+    debugPrint(
+      '🔖 FishClassifier: loaded ${_labels.length} labels from $_labelsAsset',
+    );
 
     // 2) Load interpreter
     _interpreter = await Interpreter.fromAsset(
@@ -101,7 +100,9 @@ class FishClassifier {
 
     final outShape = _outTensor.shape; // e.g. [1, numClasses]
     final numClasses = outShape.isNotEmpty ? outShape.last : 0;
-    debugPrint('FishClassifier output shape: ${_outTensor.type} $outShape (numClasses=$numClasses)');
+    debugPrint(
+      'FishClassifier output shape: ${_outTensor.type} $outShape (numClasses=$numClasses)',
+    );
     debugPrint(
       'FishClassifier preprocess: resize(shorter=int($_side * 1.15)) -> center-crop($_side)',
     );
@@ -114,7 +115,9 @@ class FishClassifier {
     }
 
     if (_inType != TensorType.float32) {
-      debugPrint('⚠️ FishClassifier: expected float32 input, but got $_inType. Code assumes float32.');
+      debugPrint(
+        '⚠️ FishClassifier: expected float32 input, but got $_inType. Code assumes float32.',
+      );
     }
 
     _isInited = true;
@@ -129,7 +132,10 @@ class FishClassifier {
     // 2) Run model
     final numClasses = _outTensor.shape.last;
     final inputTensor = [_imageToFloat32(pre)];
-    final output = List.generate(1, (_) => List<double>.filled(numClasses, 0.0));
+    final output = List.generate(
+      1,
+      (_) => List<double>.filled(numClasses, 0.0),
+    );
 
     _interpreter!.run(inputTensor, output);
 
@@ -153,74 +159,60 @@ class FishClassifier {
       'p=${(bestP * 100).toStringAsFixed(1)}%',
     );
 
-    return FishClassification(
-      label: chosenLabel,
-      confidence: bestP,
-    );
+    return FishClassification(label: chosenLabel, confidence: bestP);
   }
 
   // --- Geometry: Resize(shorter-side = int(side * 1.15)) -> CenterCrop(side) ---
   img.Image _resizeShortSideThenCenterCrop(img.Image im) {
-    final int side = _side;
+  final int side = _side;
+  final int resizedShort = (side * 1.15).round();
 
-    const double resizeFactor = 1.15;
-    final int targetShort = math.max(1, (side * resizeFactor).round());
+  final int w = im.width;
+  final int h = im.height;
 
-    final int w = im.width;
-    final int h = im.height;
-
-    final double shortSide = math.min(w, h).toDouble();
-    final double scaleFactor = targetShort / shortSide;
-    final int newW = math.max(1, (w * scaleFactor).round());
-    final int newH = math.max(1, (h * scaleFactor).round());
-
-    final img.Image resized = img.copyResize(im, width: newW, height: newH);
-
-    final int x0 = math.max(0, (resized.width - side) ~/ 2);
-    final int y0 = math.max(0, (resized.height - side) ~/ 2);
-
-    final int cropW = math.min(side, resized.width);
-    final int cropH = math.min(side, resized.height);
-
-    final img.Image cropped = img.copyCrop(
-      resized,
-      x: x0,
-      y: y0,
-      width: cropW,
-      height: cropH,
-    );
-
-    // Guarantee exact side x side
-    if (cropped.width != side || cropped.height != side) {
-      return img.copyResize(cropped, width: side, height: side);
-    }
-    return cropped;
+  // resize so that the SHORTER side becomes resizedShort
+  int newW, newH;
+  if (w <= h) {
+    newW = resizedShort;
+    newH = ((h / w) * resizedShort).round();
+  } else {
+    newH = resizedShort;
+    newW = ((w / h) * resizedShort).round();
   }
 
-      img.Image _padToSquareThenResize(img.Image im) {
-      final int side = _side;
-      final int s = math.max(im.width, im.height);
+  img.Image resized = img.copyResize(
+    im,
+    width: newW,
+    height: newH,
+    interpolation: img.Interpolation.linear,
+  );
 
-      // background = average of the 4 corner pixels (usually your tray/tile color)
-      final p1 = im.getPixel(0, 0);
-      final p2 = im.getPixel(im.width - 1, 0);
-      final p3 = im.getPixel(0, im.height - 1);
-      final p4 = im.getPixel(im.width - 1, im.height - 1);
+  // center crop to side x side
+  final int left = ((resized.width - side) / 2).floor().clamp(0, resized.width - side);
+  final int top  = ((resized.height - side) / 2).floor().clamp(0, resized.height - side);
 
-      final int r = ((p1.r + p2.r + p3.r + p4.r) / 4).round();
-      final int g = ((p1.g + p2.g + p3.g + p4.g) / 4).round();
-      final int b = ((p1.b + p2.b + p3.b + p4.b) / 4).round();
+  return img.copyCrop(resized, x: left, y: top, width: side, height: side);
+}
 
+
+  img.Image _padToSquareThenResize(img.Image im) {
+    // 1) Pad to square (black), like training PadToSquare()
+    final int s = math.max(im.width, im.height);
+
+    img.Image squared = im;
+    if (im.width != im.height) {
       final canvas = img.Image(width: s, height: s);
-      img.fill(canvas, color: img.ColorRgb8(r, g, b));
+      img.fill(canvas, color: img.ColorRgb8(0, 0, 0)); // black pad
 
       final int ox = ((s - im.width) / 2).round();
       final int oy = ((s - im.height) / 2).round();
       img.compositeImage(canvas, im, dstX: ox, dstY: oy);
-
-      return img.copyResize(canvas, width: side, height: side);
+      squared = canvas;
     }
 
+    // 2) Match training/val: Resize(shorter = int(side*1.15)) -> CenterCrop(side)
+    return _resizeShortSideThenCenterCrop(squared);
+  }
 
 
   /// Convert image to [H][W][3] float32 with ImageNet normalization.
@@ -230,22 +222,19 @@ class FishClassifier {
 
     return List.generate(
       h,
-      (y) => List.generate(
-        w,
-        (x) {
-          final p = image.getPixel(x, y);
+      (y) => List.generate(w, (x) {
+        final p = image.getPixel(x, y);
 
-          final r = p.r / 255.0;
-          final g = p.g / 255.0;
-          final b = p.b / 255.0;
+        final r = p.r / 255.0;
+        final g = p.g / 255.0;
+        final b = p.b / 255.0;
 
-          final nr = (r - _mean[0]) / _std[0];
-          final ng = (g - _mean[1]) / _std[1];
-          final nb = (b - _mean[2]) / _std[2];
+        final nr = (r - _mean[0]) / _std[0];
+        final ng = (g - _mean[1]) / _std[1];
+        final nb = (b - _mean[2]) / _std[2];
 
-          return [nr, ng, nb];
-        },
-      ),
+        return [nr, ng, nb];
+      }),
     );
   }
 
@@ -268,8 +257,10 @@ class FishClassifier {
     }
 
     String parseSpecies(String label) {
-      if (label.startsWith(_freshPrefix)) return label.substring(_freshPrefix.length);
-      if (label.startsWith(_notFreshPrefix)) return label.substring(_notFreshPrefix.length);
+      if (label.startsWith(_freshPrefix))
+        return label.substring(_freshPrefix.length);
+      if (label.startsWith(_notFreshPrefix))
+        return label.substring(_notFreshPrefix.length);
       return label;
     }
 
@@ -282,12 +273,14 @@ class FishClassifier {
         if (idx == null) continue;
 
         final rawLabel = entry.value.toString().trim();
-        labels.add(FishClassLabel(
-          index: idx,
-          label: rawLabel,
-          species: parseSpecies(rawLabel),
-          freshness: parseFreshness(rawLabel),
-        ));
+        labels.add(
+          FishClassLabel(
+            index: idx,
+            label: rawLabel,
+            species: parseSpecies(rawLabel),
+            freshness: parseFreshness(rawLabel),
+          ),
+        );
       }
       labels.sort((a, b) => a.index.compareTo(b.index));
       return labels;
@@ -297,16 +290,20 @@ class FishClassifier {
     if (data is List) {
       for (int i = 0; i < data.length; i++) {
         final rawLabel = data[i].toString().trim();
-        labels.add(FishClassLabel(
-          index: i,
-          label: rawLabel,
-          species: parseSpecies(rawLabel),
-          freshness: parseFreshness(rawLabel),
-        ));
+        labels.add(
+          FishClassLabel(
+            index: i,
+            label: rawLabel,
+            species: parseSpecies(rawLabel),
+            freshness: parseFreshness(rawLabel),
+          ),
+        );
       }
       return labels;
     }
 
-    throw Exception('Unsupported JSON format for $assetPath: ${data.runtimeType}');
+    throw Exception(
+      'Unsupported JSON format for $assetPath: ${data.runtimeType}',
+    );
   }
 }

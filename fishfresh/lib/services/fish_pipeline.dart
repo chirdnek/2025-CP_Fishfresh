@@ -218,7 +218,7 @@ class FishPipeline {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
-  Rect _padRect(Rect r, double W, double H, {double padX = 0.06, double padY = 0.14}) {
+  Rect _padRect(Rect r, double W, double H, {double padX = 0.12, double padY = 0.22}) {
   final dx = r.width * padX;
   final dy = r.height * padY;
 
@@ -395,7 +395,7 @@ class FishPipeline {
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
 
         // classifier crop: tight rect + padding (NOT square here)
-        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.06, padY: 0.14);
+        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.12, padY: 0.22);
 
         // decide fallback based on the ORIGINAL YOLO box (not the padded crop)
         final detAreaFrac =
@@ -474,29 +474,32 @@ class FishPipeline {
 
       if (bestDet != null) {
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
-        final Rect expandedForCrop =
-            _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
-        final double areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
-        if (areaFrac > 0.90) {
-            debugPrint(
-              'FishPipeline: single-fallback crop too large (${(areaFrac * 100).toStringAsFixed(1)}%), using full image'
-            );
-            uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
-            cropRect = uiRect;
-            cropImage = fullImg;
-            } else {
-            final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
-            final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
-            final int right = cropRect.right.ceil().clamp(left + 1, fullImg.width);
-            final int bottom = cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+        // classifier crop: tight rect + padding (NOT square)
+        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.12, padY: 0.22);
 
-            final int w = (right - left).clamp(1, fullImg.width);
-            final int h = (bottom - top).clamp(1, fullImg.height);
+        // fallback based on original YOLO box area
+        final detAreaFrac =
+            (bestDet.box.width * bestDet.box.height) / (imgW * imgH);
 
-            cropImage = img.copyCrop(fullImg, x: left, y: top, width: w, height: h);
-         }
+        if (detAreaFrac > 0.98) {
+          debugPrint('FishPipeline: YOLO box too large ($detAreaFrac), using full image');
+          uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
+          cropRect = uiRect;
+          cropImage = fullImg;
+          await _debugSaveCrop(cropImage, 'trayFallback_FULLFRAME');
+        } else {
+          // crop using cropRect (same as your single code)
+          final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+          final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+          final int right = cropRect.right.ceil().clamp(left + 1, fullImg.width);
+          final int bottom = cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+
+          cropImage = img.copyCrop(fullImg,
+              x: left, y: top, width: right - left, height: bottom - top);
+
+          await _debugSaveCrop(cropImage, 'trayFallback');
+        }
 
         } else {
         uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
@@ -548,7 +551,7 @@ class FishPipeline {
       final Rect uiRect = _expandForUi(d.box, imgW, imgH);
 
       // For classifier: padded RECT crop (prevents grabbing nearby fish)
-      final Rect cropRect = _padRect(d.box, imgW, imgH, padX: 0.06, padY: 0.14);
+      final Rect cropRect = _padRect(d.box, imgW, imgH, padX: 0.12, padY: 0.22);
 
       final double areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
       if (areaFrac > 0.70) {
