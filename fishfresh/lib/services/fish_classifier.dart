@@ -17,6 +17,12 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
+import 'dart:typed_data';
+import 'package:image/image.dart' as img;
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+import 'package:flutter/foundation.dart'; // debugPrint
+
+
 class FishClassLabel {
   final int index;
   final String label; // e.g. "fresh__bigeye_scad"
@@ -129,6 +135,10 @@ class FishClassifier {
 
     // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
     final pre = _padToSquareThenResize(crop);
+
+    // ✅ ADD THIS HERE (save what ResNet actually sees)
+    await debugSaveCropToGallery(pre, 'CLS_INPUT');
+
     // 2) Run model
     final numClasses = _outTensor.shape.last;
     final inputTensor = [_imageToFloat32(pre)];
@@ -306,4 +316,21 @@ class FishClassifier {
       'Unsupported JSON format for $assetPath: ${data.runtimeType}',
     );
   }
+
+  Future<void> debugSaveCropToGallery(img.Image im, String tag) async {
+    try {
+      final bytes = img.encodeJpg(im, quality: 95);
+
+      final result = await ImageGallerySaverPlus.saveImage(
+        Uint8List.fromList(bytes),
+        quality: 95,
+        name: 'FishFresh_${tag}_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      debugPrint('🖼️ Saved to Gallery: $result');
+    } catch (e) {
+      debugPrint('❌ debugSaveCropToGallery failed: $e');
+    }
+  }
+
 }
