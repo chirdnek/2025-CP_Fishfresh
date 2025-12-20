@@ -1,6 +1,6 @@
 // lib/services/fish_pipeline.dart
 // YOLOv8 TFLite + ResNet pipeline
-// ignore_for_file: avoid_print, constant_identifier_names, no_leading_underscores_for_local_identifiers, unnecessary_import, unused_element
+// ignore_for_file: avoid_print, constant_identifier_names, no_leading_underscores_for_local_identifiers, unnecessary_import, unused_element, non_constant_identifier_names
 
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
