@@ -17,9 +17,12 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
+// ignore: unnecessary_import
 import 'dart:typed_data';
+// ignore: duplicate_import
 import 'package:image/image.dart' as img;
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+// ignore: duplicate_import
 import 'package:flutter/foundation.dart'; // debugPrint
 
 
