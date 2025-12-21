@@ -7,7 +7,7 @@
 // - ImageNet normalization: mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]
 // - Outputs top-1 label from classes_flat.json (e.g. "fresh__bigeye_scad")
 //
-// ignore_for_file: no_leading_underscores_for_local_identifiers, constant_identifier_names
+// ignore_for_file: no_leading_underscores_for_local_identifiers, constant_identifier_names, curly_braces_in_flow_control_structures
 
 import 'dart:convert';
 import 'dart:math' as math;
@@ -16,6 +16,15 @@ import 'package:flutter/foundation.dart'; // debugPrint
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
+
+// ignore: unnecessary_import
+import 'dart:typed_data';
+// ignore: duplicate_import
+import 'package:image/image.dart' as img;
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
+// ignore: duplicate_import
+import 'package:flutter/foundation.dart'; // debugPrint
+
 
 class FishClassLabel {
   final int index;
@@ -35,10 +44,7 @@ class FishClassification {
   final FishClassLabel label;
   final double confidence; // probability of the winning class (softmax)
 
-  FishClassification({
-    required this.label,
-    required this.confidence,
-  });
+  FishClassification({required this.label, required this.confidence});
 }
 
 class FishClassifier {
@@ -46,7 +52,7 @@ class FishClassifier {
   static final instance = FishClassifier._private();
 
   static const _tfliteAsset =
-      'assets/model/resnet50_torchvision_Dec_6_5-33_pm_6species_float32.tflite';
+      'assets/model/resnet50_torchvision_Dec_19_9-47_pm_DEC_float32.tflite';
 
   static const _labelsAsset = 'assets/model/classes_flat.json';
 
@@ -74,7 +80,9 @@ class FishClassifier {
 
     // 1) Load labels (must match numClasses from the model)
     _labels = await _loadLabels(_labelsAsset);
-    debugPrint('🔖 FishClassifier: loaded ${_labels.length} labels from $_labelsAsset');
+    debugPrint(
+      '🔖 FishClassifier: loaded ${_labels.length} labels from $_labelsAsset',
+    );
 
     // 2) Load interpreter
     _interpreter = await Interpreter.fromAsset(
@@ -101,7 +109,9 @@ class FishClassifier {
 
     final outShape = _outTensor.shape; // e.g. [1, numClasses]
     final numClasses = outShape.isNotEmpty ? outShape.last : 0;
-    debugPrint('FishClassifier output shape: ${_outTensor.type} $outShape (numClasses=$numClasses)');
+    debugPrint(
+      'FishClassifier output shape: ${_outTensor.type} $outShape (numClasses=$numClasses)',
+    );
     debugPrint(
       'FishClassifier preprocess: resize(shorter=int($_side * 1.15)) -> center-crop($_side)',
     );
@@ -114,7 +124,9 @@ class FishClassifier {
     }
 
     if (_inType != TensorType.float32) {
-      debugPrint('⚠️ FishClassifier: expected float32 input, but got $_inType. Code assumes float32.');
+      debugPrint(
+        '⚠️ FishClassifier: expected float32 input, but got $_inType. Code assumes float32.',
+      );
     }
 
     _isInited = true;
@@ -125,12 +137,18 @@ class FishClassifier {
     if (!_isInited) await ensureInited();
 
     // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
-    final pre = _resizeShortSideThenCenterCrop(crop);
+    final pre = _padToSquareThenResize(crop);
+
+    // ✅ ADD THIS HERE (save what ResNet actually sees)
+    await debugSaveCropToGallery(pre, 'CLS_INPUT');
 
     // 2) Run model
     final numClasses = _outTensor.shape.last;
     final inputTensor = [_imageToFloat32(pre)];
-    final output = List.generate(1, (_) => List<double>.filled(numClasses, 0.0));
+    final output = List.generate(
+      1,
+      (_) => List<double>.filled(numClasses, 0.0),
+    );
 
     _interpreter!.run(inputTensor, output);
 
@@ -154,49 +172,61 @@ class FishClassifier {
       'p=${(bestP * 100).toStringAsFixed(1)}%',
     );
 
-    return FishClassification(
-      label: chosenLabel,
-      confidence: bestP,
-    );
+    return FishClassification(label: chosenLabel, confidence: bestP);
   }
 
   // --- Geometry: Resize(shorter-side = int(side * 1.15)) -> CenterCrop(side) ---
   img.Image _resizeShortSideThenCenterCrop(img.Image im) {
-    final int side = _side;
+  final int side = _side;
+  final int resizedShort = (side * 1.15).round();
 
-    const double resizeFactor = 1.15;
-    final int targetShort = math.max(1, (side * resizeFactor).round());
+  final int w = im.width;
+  final int h = im.height;
 
-    final int w = im.width;
-    final int h = im.height;
-
-    final double shortSide = math.min(w, h).toDouble();
-    final double scaleFactor = targetShort / shortSide;
-    final int newW = math.max(1, (w * scaleFactor).round());
-    final int newH = math.max(1, (h * scaleFactor).round());
-
-    final img.Image resized = img.copyResize(im, width: newW, height: newH);
-
-    final int x0 = math.max(0, (resized.width - side) ~/ 2);
-    final int y0 = math.max(0, (resized.height - side) ~/ 2);
-
-    final int cropW = math.min(side, resized.width);
-    final int cropH = math.min(side, resized.height);
-
-    final img.Image cropped = img.copyCrop(
-      resized,
-      x: x0,
-      y: y0,
-      width: cropW,
-      height: cropH,
-    );
-
-    // Guarantee exact side x side
-    if (cropped.width != side || cropped.height != side) {
-      return img.copyResize(cropped, width: side, height: side);
-    }
-    return cropped;
+  // resize so that the SHORTER side becomes resizedShort
+  int newW, newH;
+  if (w <= h) {
+    newW = resizedShort;
+    newH = ((h / w) * resizedShort).round();
+  } else {
+    newH = resizedShort;
+    newW = ((w / h) * resizedShort).round();
   }
+
+  img.Image resized = img.copyResize(
+    im,
+    width: newW,
+    height: newH,
+    interpolation: img.Interpolation.linear,
+  );
+
+  // center crop to side x side
+  final int left = ((resized.width - side) / 2).floor().clamp(0, resized.width - side);
+  final int top  = ((resized.height - side) / 2).floor().clamp(0, resized.height - side);
+
+  return img.copyCrop(resized, x: left, y: top, width: side, height: side);
+}
+
+
+  img.Image _padToSquareThenResize(img.Image im) {
+    // 1) Pad to square (black), like training PadToSquare()
+    final int s = math.max(im.width, im.height);
+
+    img.Image squared = im;
+    if (im.width != im.height) {
+      final canvas = img.Image(width: s, height: s);
+      img.fill(canvas, color: img.ColorRgb8(0, 0, 0)); // black pad
+
+      final int ox = ((s - im.width) / 2).round();
+      final int oy = ((s - im.height) / 2).round();
+      img.compositeImage(canvas, im, dstX: ox, dstY: oy);
+      squared = canvas;
+    }
+
+    // 2) Match training/val: Resize(shorter = int(side*1.15)) -> CenterCrop(side)
+    return _resizeShortSideThenCenterCrop(squared);
+  }
+
 
   /// Convert image to [H][W][3] float32 with ImageNet normalization.
   List<List<List<double>>> _imageToFloat32(img.Image image) {
@@ -205,22 +235,19 @@ class FishClassifier {
 
     return List.generate(
       h,
-      (y) => List.generate(
-        w,
-        (x) {
-          final p = image.getPixel(x, y);
+      (y) => List.generate(w, (x) {
+        final p = image.getPixel(x, y);
 
-          final r = p.r / 255.0;
-          final g = p.g / 255.0;
-          final b = p.b / 255.0;
+        final r = p.r / 255.0;
+        final g = p.g / 255.0;
+        final b = p.b / 255.0;
 
-          final nr = (r - _mean[0]) / _std[0];
-          final ng = (g - _mean[1]) / _std[1];
-          final nb = (b - _mean[2]) / _std[2];
+        final nr = (r - _mean[0]) / _std[0];
+        final ng = (g - _mean[1]) / _std[1];
+        final nb = (b - _mean[2]) / _std[2];
 
-          return [nr, ng, nb];
-        },
-      ),
+        return [nr, ng, nb];
+      }),
     );
   }
 
@@ -243,8 +270,10 @@ class FishClassifier {
     }
 
     String parseSpecies(String label) {
-      if (label.startsWith(_freshPrefix)) return label.substring(_freshPrefix.length);
-      if (label.startsWith(_notFreshPrefix)) return label.substring(_notFreshPrefix.length);
+      if (label.startsWith(_freshPrefix))
+        return label.substring(_freshPrefix.length);
+      if (label.startsWith(_notFreshPrefix))
+        return label.substring(_notFreshPrefix.length);
       return label;
     }
 
@@ -257,12 +286,14 @@ class FishClassifier {
         if (idx == null) continue;
 
         final rawLabel = entry.value.toString().trim();
-        labels.add(FishClassLabel(
-          index: idx,
-          label: rawLabel,
-          species: parseSpecies(rawLabel),
-          freshness: parseFreshness(rawLabel),
-        ));
+        labels.add(
+          FishClassLabel(
+            index: idx,
+            label: rawLabel,
+            species: parseSpecies(rawLabel),
+            freshness: parseFreshness(rawLabel),
+          ),
+        );
       }
       labels.sort((a, b) => a.index.compareTo(b.index));
       return labels;
@@ -272,16 +303,37 @@ class FishClassifier {
     if (data is List) {
       for (int i = 0; i < data.length; i++) {
         final rawLabel = data[i].toString().trim();
-        labels.add(FishClassLabel(
-          index: i,
-          label: rawLabel,
-          species: parseSpecies(rawLabel),
-          freshness: parseFreshness(rawLabel),
-        ));
+        labels.add(
+          FishClassLabel(
+            index: i,
+            label: rawLabel,
+            species: parseSpecies(rawLabel),
+            freshness: parseFreshness(rawLabel),
+          ),
+        );
       }
       return labels;
     }
 
-    throw Exception('Unsupported JSON format for $assetPath: ${data.runtimeType}');
+    throw Exception(
+      'Unsupported JSON format for $assetPath: ${data.runtimeType}',
+    );
   }
+
+  Future<void> debugSaveCropToGallery(img.Image im, String tag) async {
+    try {
+      final bytes = img.encodeJpg(im, quality: 95);
+
+      final result = await ImageGallerySaverPlus.saveImage(
+        Uint8List.fromList(bytes),
+        quality: 95,
+        name: 'FishFresh_${tag}_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      debugPrint('🖼️ Saved to Gallery: $result');
+    } catch (e) {
+      debugPrint('❌ debugSaveCropToGallery failed: $e');
+    }
+  }
+
 }

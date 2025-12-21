@@ -218,6 +218,21 @@ class FishPipeline {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
+  Rect _padRect(Rect r, double W, double H, {double padX = 0.12, double padY = 0.22}) {
+  final dx = r.width * padX;
+  final dy = r.height * padY;
+
+  final left = (r.left - dx).clamp(0.0, W);
+  final top = (r.top - dy).clamp(0.0, H);
+  final right = (r.right + dx).clamp(0.0, W);
+  final bottom = (r.bottom + dy).clamp(0.0, H);
+
+  if (right - left < 2 || bottom - top < 2) return r;
+  return Rect.fromLTRB(left, top, right, bottom);
+}
+
+
+
   // ---------------------------------------------------------------------------
   // Make a square crop around a bbox (for classifier only)
   // ---------------------------------------------------------------------------
@@ -340,7 +355,10 @@ class FishPipeline {
 
     // Sort by score and keep bestDet for UI / single mode
     merged.sort((a, b) => b.score.compareTo(a.score));
-    final bestDet = merged.isNotEmpty ? merged.first : null;
+    final filteredForSingle = _filterSingle(merged, imgW, imgH);
+    final bestDet = filteredForSingle.isNotEmpty
+        ? (filteredForSingle..sort((a,b)=>b.score.compareTo(a.score))).first
+        : (merged.isNotEmpty ? merged.first : null);
 
     // 3) Tray candidates (for multi-fish)
     var trayCandidates =
@@ -376,29 +394,37 @@ class FishPipeline {
         // nice-looking UI box (rectangular, small margin)
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
 
-        // bigger square for classifier
-        final Rect expandedForCrop =
-            _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
+        // classifier crop: tight rect + padding (NOT square here)
+        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.12, padY: 0.22);
 
-        final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
-        final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
-        final int right =
-            cropRect.right.ceil().clamp(left + 1, fullImg.width);
-        final int bottom =
-            cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+        // decide fallback based on the ORIGINAL YOLO box (not the padded crop)
+        final detAreaFrac =
+            (bestDet.box.width * bestDet.box.height) / (imgW * imgH);
 
-        final int w = (right - left).clamp(1, fullImg.width);
-        final int h = (bottom - top).clamp(1, fullImg.height);
+        if (detAreaFrac > 0.98) {
+          debugPrint('FishPipeline: YOLO box too large ($detAreaFrac), using full image');
+          uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
+          cropRect = uiRect;
+          cropImage = fullImg;
+          await _debugSaveCrop(cropImage, 'single_FULLFRAME');
+        } else {
+          final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+          final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+          final int right = cropRect.right.ceil().clamp(left + 1, fullImg.width);
+          final int bottom = cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
 
-        cropImage = img.copyCrop(
-          fullImg,
-          x: left,
-          y: top,
-          width: w,
-          height: h,
-        );
-        await _debugSaveCrop(cropImage, 'single');
+          final int w = (right - left).clamp(1, fullImg.width);
+          final int h = (bottom - top).clamp(1, fullImg.height);
+
+          cropImage = img.copyCrop(
+            fullImg,
+            x: left,
+            y: top,
+            width: w,
+            height: h,
+          );
+          await _debugSaveCrop(cropImage, 'single');
+        }
       } else {
         uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
         cropRect = uiRect;
@@ -433,6 +459,7 @@ class FishPipeline {
         'overall_freshness': freshness,
         'scan_mode': resolvedMode,
       };
+
     }
 
     // -----------------------------------------------------------------------
@@ -447,28 +474,34 @@ class FishPipeline {
 
       if (bestDet != null) {
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
-        final Rect expandedForCrop =
-            _expandForCrop(bestDet.box, imgW, imgH);
-        cropRect = _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
 
-        final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
-        final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
-        final int right =
-            cropRect.right.ceil().clamp(left + 1, fullImg.width);
-        final int bottom =
-            cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+        // classifier crop: tight rect + padding (NOT square)
+        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.12, padY: 0.22);
 
-        final int w = (right - left).clamp(1, fullImg.width);
-        final int h = (bottom - top).clamp(1, fullImg.height);
+        // fallback based on original YOLO box area
+        final detAreaFrac =
+            (bestDet.box.width * bestDet.box.height) / (imgW * imgH);
 
-        cropImage = img.copyCrop(
-          fullImg,
-          x: left,
-          y: top,
-          width: w,
-          height: h,
-        );
-      } else {
+        if (detAreaFrac > 0.98) {
+          debugPrint('FishPipeline: YOLO box too large ($detAreaFrac), using full image');
+          uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
+          cropRect = uiRect;
+          cropImage = fullImg;
+          await _debugSaveCrop(cropImage, 'trayFallback_FULLFRAME');
+        } else {
+          // crop using cropRect (same as your single code)
+          final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
+          final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
+          final int right = cropRect.right.ceil().clamp(left + 1, fullImg.width);
+          final int bottom = cropRect.bottom.ceil().clamp(top + 1, fullImg.height);
+
+          cropImage = img.copyCrop(fullImg,
+              x: left, y: top, width: right - left, height: bottom - top);
+
+          await _debugSaveCrop(cropImage, 'trayFallback');
+        }
+
+        } else {
         uiRect = Rect.fromLTRB(0.0, 0.0, imgW, imgH);
         cropRect = uiRect;
         cropImage = fullImg;
@@ -504,7 +537,8 @@ class FishPipeline {
       };
     }
 
-
+    // Optional: cap number of tray detections
+    
 
     // 4) Crop + classify per fish (tray mode)
     final perFish = <Map<String, dynamic>>[];
@@ -516,11 +550,16 @@ class FishPipeline {
       // YOLO box → pretty UI rect
       final Rect uiRect = _expandForUi(d.box, imgW, imgH);
 
-      // For classifier: slightly bigger square around expanded crop region
-      final Rect expandedForCrop =
-          _expandForCrop(d.box, imgW, imgH);
-      final Rect cropRect =
-          _squareAround(expandedForCrop, imgW, imgH, scale: 1.45);
+      // For classifier: padded RECT crop (prevents grabbing nearby fish)
+      final Rect cropRect = _padRect(d.box, imgW, imgH, padX: 0.12, padY: 0.22);
+
+      final double areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
+      if (areaFrac > 0.70) {
+        debugPrint(
+          'FishPipeline: tray crop too large (${(areaFrac * 100).toStringAsFixed(1)}%), skipping box #$boxCounter'
+        );
+        continue; // skip this bad detection
+      }
 
       final int left = cropRect.left.floor().clamp(0, fullImg.width - 1);
       final int top = cropRect.top.floor().clamp(0, fullImg.height - 1);
@@ -562,6 +601,21 @@ class FishPipeline {
         'det_score': detScore,
       });
     }
+
+    if (perFish.isEmpty) {
+      debugPrint('FishPipeline: perFish empty (no valid tray crops). Fallback to single/full-frame.');
+
+      final cls = await FishClassifier.instance.classify(fullImg);
+
+      return {
+        'latency_ms': sw.elapsedMilliseconds,
+        'per_fish': const [],
+        'overall_species': cls.label.species,
+        'overall_freshness': cls.label.freshness,
+        'scan_mode': 'tray-empty-fallback',
+      };
+    }
+
 
     // -----------------------------------------------------------------------
     // 5) TRAY-LEVEL SUMMARY (no species snapping)
