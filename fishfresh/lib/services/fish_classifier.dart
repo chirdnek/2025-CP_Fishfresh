@@ -137,7 +137,7 @@ class FishClassifier {
     if (!_isInited) await ensureInited();
 
     // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
-    final pre = _padToSquareThenResize(crop);
+    final pre = _resizeShortSideThenCenterCrop(crop);
 
     // ✅ ADD THIS HERE (save what ResNet actually sees)
     await debugSaveCropToGallery(pre, 'CLS_INPUT');
@@ -197,7 +197,7 @@ class FishClassifier {
     im,
     width: newW,
     height: newH,
-    interpolation: img.Interpolation.linear,
+    interpolation: img.Interpolation.cubic, // was linear
   );
 
   // center crop to side x side
