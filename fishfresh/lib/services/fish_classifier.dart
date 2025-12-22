@@ -137,7 +137,7 @@ class FishClassifier {
     if (!_isInited) await ensureInited();
 
     // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
-    final pre = _resizeShortSideThenCenterCrop(crop);
+    final pre = _padToSquareThenResizeNoCrop(crop);
 
     // ✅ ADD THIS HERE (save what ResNet actually sees)
     await debugSaveCropToGallery(pre, 'CLS_INPUT');
@@ -226,6 +226,27 @@ class FishClassifier {
     // 2) Match training/val: Resize(shorter = int(side*1.15)) -> CenterCrop(side)
     return _resizeShortSideThenCenterCrop(squared);
   }
+
+  img.Image _padToSquareThenResizeNoCrop(img.Image im) {
+    final int side = _side;
+    final int s = math.max(im.width, im.height);
+
+    // Use 114 gray (same style as YOLO letterbox) instead of black
+    final canvas = img.Image(width: s, height: s);
+    img.fill(canvas, color: img.ColorRgb8(114, 114, 114));
+
+    final int ox = ((s - im.width) / 2).round();
+    final int oy = ((s - im.height) / 2).round();
+    img.compositeImage(canvas, im, dstX: ox, dstY: oy);
+
+    return img.copyResize(
+      canvas,
+      width: side,
+      height: side,
+      interpolation: img.Interpolation.cubic,
+    );
+  }
+
 
 
   /// Convert image to [H][W][3] float32 with ImageNet normalization.
@@ -335,5 +356,7 @@ class FishClassifier {
       debugPrint('❌ debugSaveCropToGallery failed: $e');
     }
   }
+
+  
 
 }

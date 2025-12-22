@@ -476,7 +476,7 @@ class FishPipeline {
         uiRect = _expandForUi(bestDet.box, imgW, imgH);
 
         // classifier crop: tight rect + padding (NOT square)
-        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.03, padY: 0.30);
+        cropRect = _padRect(bestDet.box, imgW, imgH, padX: 0.03, padY: 0.22);
 
         // fallback based on original YOLO box area
         final detAreaFrac =
@@ -551,7 +551,7 @@ class FishPipeline {
       final Rect uiRect = _expandForUi(d.box, imgW, imgH);
 
       // For classifier: padded RECT crop (prevents grabbing nearby fish)
-      final Rect cropRect = _padRect(d.box, imgW, imgH, padX: 0.03, padY: 0.30);
+      final Rect cropRect = _padRect(d.box, imgW, imgH, padX: 0.03, padY: 0.22);
 
       final double areaFrac = (cropRect.width * cropRect.height) / (imgW * imgH);
       if (areaFrac > 0.70) {
