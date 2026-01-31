@@ -7,7 +7,7 @@
 // - ImageNet normalization: mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]
 // - Outputs top-1 label from classes_flat.json (e.g. "fresh__bigeye_scad")
 //
-// ignore_for_file: no_leading_underscores_for_local_identifiers, constant_identifier_names, curly_braces_in_flow_control_structures
+// ignore_for_file: no_leading_underscores_for_local_identifiers, constant_identifier_names, curly_braces_in_flow_control_structures, unused_element
 
 import 'dart:convert';
 import 'dart:math' as math;
@@ -52,7 +52,7 @@ class FishClassifier {
   static final instance = FishClassifier._private();
 
   static const _tfliteAsset =
-      'assets/model/resnet50_torchvision_Dec_19_9-47_pm_DEC_float32.tflite';
+      'assets/model/resnet50_torchvision_Jan_31_12-33_am_NEWYEAR_float32.tflite';
 
   static const _labelsAsset = 'assets/model/classes_flat.json';
 
