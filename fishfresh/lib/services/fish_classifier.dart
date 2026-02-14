@@ -165,6 +165,24 @@ class FishClassifier {
       }
     }
 
+    // 🔴 NEW: Threshold Check (The Fix)
+    // If the highest confidence is below 40% (0.40), we treat it as "Unknown".
+    // You can adjust 0.40 to be stricter (e.g., 0.60) if needed.
+    if (bestP < 0.40) {
+      debugPrint(
+        '⚠️ Low confidence: ${(bestP * 100).toStringAsFixed(1)}% -> Returning Unknown',
+      );
+      return FishClassification(
+        label: FishClassLabel(
+          index: -1,
+          label: "Unknown",
+          species: "Unknown",
+          freshness: "Unknown",
+        ),
+        confidence: bestP,
+      );
+    }
+
     final chosenLabel = _labels[bestIdx];
 
     debugPrint(
@@ -215,7 +233,7 @@ class FishClassifier {
     img.Image squared = im;
     if (im.width != im.height) {
       final canvas = img.Image(width: s, height: s);
-      img.fill(canvas, color: img.ColorRgb8(0, 0, 0)); // black pad
+      img.fill(canvas, color: img.ColorRgb8(114, 114, 114)); // black pad
 
       final int ox = ((s - im.width) / 2).round();
       final int oy = ((s - im.height) / 2).round();
