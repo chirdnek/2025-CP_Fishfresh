@@ -137,7 +137,17 @@ class FishClassifier {
     if (!_isInited) await ensureInited();
 
     // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
-    final pre = _padToSquareThenResizeNoCrop(crop);
+    final pre = _squashLikePyTorch(crop);
+
+    // --- New Geometry: Violent Squash (Matches updated Python without bars) ---
+    img.Image _squashLikePyTorch(img.Image im) {
+      return img.copyResize(
+        im,
+        width: _side, 
+        height: _side,
+        interpolation: img.Interpolation.cubic, // Matches Python's BICUBIC
+      );
+    }
 
     // ✅ ADD THIS HERE (save what ResNet actually sees)
     await debugSaveCropToGallery(pre, 'CLS_INPUT');
