@@ -7,7 +7,7 @@
 // - ImageNet normalization: mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]
 // - Outputs top-1 label from classes_flat.json (e.g. "fresh__bigeye_scad")
 //
-// ignore_for_file: no_leading_underscores_for_local_identifiers, constant_identifier_names, curly_braces_in_flow_control_structures
+// ignore_for_file: no_leading_underscores_for_local_identifiers, constant_identifier_names, curly_braces_in_flow_control_structures, unused_element
 
 import 'dart:convert';
 import 'dart:math' as math;
@@ -52,7 +52,7 @@ class FishClassifier {
   static final instance = FishClassifier._private();
 
   static const _tfliteAsset =
-      'assets/model/resnet50_torchvision_Dec_19_9-47_pm_DEC_float32.tflite';
+      'assets/model/resnet50_torchvision_Mar_7_11-07_am_donkey_float32.tflite';
 
   static const _labelsAsset = 'assets/model/classes_flat.json';
 
@@ -136,8 +136,8 @@ class FishClassifier {
   Future<FishClassification> classify(img.Image crop) async {
     if (!_isInited) await ensureInited();
 
-    // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
-    final pre = _padToSquareThenResize(crop);
+    // 1) Preprocess: Violent Squash (Matches updated Python without bars)
+    final pre = _squashLikePyTorch(crop);
 
     // ✅ ADD THIS HERE (save what ResNet actually sees)
     await debugSaveCropToGallery(pre, 'CLS_INPUT');
@@ -163,6 +163,24 @@ class FishClassifier {
         bestP = probs[i];
         bestIdx = i;
       }
+    }
+
+    // 🔴 NEW: Threshold Check (The Fix)
+    // If the highest confidence is below 40% (0.40), we treat it as "Unknown".
+    // You can adjust 0.40 to be stricter (e.g., 0.60) if needed.
+    if (bestP < 0.40) {
+      debugPrint(
+        '⚠️ Low confidence: ${(bestP * 100).toStringAsFixed(1)}% -> Returning Unknown',
+      );
+      return FishClassification(
+        label: FishClassLabel(
+          index: -1,
+          label: "Unknown",
+          species: "Unknown",
+          freshness: "Unknown",
+        ),
+        confidence: bestP,
+      );
     }
 
     final chosenLabel = _labels[bestIdx];
@@ -197,7 +215,7 @@ class FishClassifier {
     im,
     width: newW,
     height: newH,
-    interpolation: img.Interpolation.linear,
+    interpolation: img.Interpolation.cubic, // was linear
   );
 
   // center crop to side x side
@@ -215,7 +233,7 @@ class FishClassifier {
     img.Image squared = im;
     if (im.width != im.height) {
       final canvas = img.Image(width: s, height: s);
-      img.fill(canvas, color: img.ColorRgb8(0, 0, 0)); // black pad
+      img.fill(canvas, color: img.ColorRgb8(114, 114, 114)); // gray pad
 
       final int ox = ((s - im.width) / 2).round();
       final int oy = ((s - im.height) / 2).round();
@@ -227,6 +245,35 @@ class FishClassifier {
     return _resizeShortSideThenCenterCrop(squared);
   }
 
+  img.Image _padToSquareThenResizeNoCrop(img.Image im) {
+    final int side = _side;
+    final int s = math.max(im.width, im.height);
+
+    // Use 114 gray (same style as YOLO letterbox) instead of black
+    final canvas = img.Image(width: s, height: s);
+    img.fill(canvas, color: img.ColorRgb8(114, 114, 114));
+
+    final int ox = ((s - im.width) / 2).round();
+    final int oy = ((s - im.height) / 2).round();
+    img.compositeImage(canvas, im, dstX: ox, dstY: oy);
+
+    return img.copyResize(
+      canvas,
+      width: side,
+      height: side,
+      interpolation: img.Interpolation.cubic,
+    );
+  }
+
+  // --- New Geometry: Violent Squash (Matches updated Python without bars) ---
+  img.Image _squashLikePyTorch(img.Image im) {
+    return img.copyResize(
+      im,
+      width: _side,
+      height: _side,
+      interpolation: img.Interpolation.cubic, // Matches Python's BICUBIC
+    );
+  }
 
   /// Convert image to [H][W][3] float32 with ImageNet normalization.
   List<List<List<double>>> _imageToFloat32(img.Image image) {
