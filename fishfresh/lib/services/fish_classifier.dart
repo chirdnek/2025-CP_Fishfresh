@@ -52,7 +52,7 @@ class FishClassifier {
   static final instance = FishClassifier._private();
 
   static const _tfliteAsset =
-      'assets/model/resnet50_torchvision_Jan_31_12-33_am_NEWYEAR_float32.tflite';
+      'assets/model/resnet50_torchvision_Mar_7_11-07_am_donkey_float32.tflite';
 
   static const _labelsAsset = 'assets/model/classes_flat.json';
 
@@ -135,12 +135,7 @@ class FishClassifier {
   /// Main entry: classify a YOLO crop (img.Image).
   Future<FishClassification> classify(img.Image crop) async {
     if (!_isInited) await ensureInited();
-
-    // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
-    final pre = _squashLikePyTorch(crop);
-
-    // --- New Geometry: Violent Squash (Matches updated Python without bars) ---
-    img.Image _squashLikePyTorch(img.Image im) {
+   img.Image _squashLikePyTorch(img.Image im) {
       return img.copyResize(
         im,
         width: _side, 
@@ -148,6 +143,11 @@ class FishClassifier {
         interpolation: img.Interpolation.cubic, // Matches Python's BICUBIC
       );
     }
+    // 1) Preprocess: Resize(shorter=int(side*1.15)) -> CenterCrop(side)
+    final pre = _squashLikePyTorch(crop);
+
+    // --- New Geometry: Violent Squash (Matches updated Python without bars) ---
+ 
 
     // ✅ ADD THIS HERE (save what ResNet actually sees)
     await debugSaveCropToGallery(pre, 'CLS_INPUT');

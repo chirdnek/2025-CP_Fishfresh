@@ -11,6 +11,7 @@ import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
 // 🔹 YOLO + RESNET PIPELINE ONLY
 import '../services/fish_pipeline.dart';
+import '../services/save_scan_history.dart';
 
 import 'fish_result_screen.dart';
 
@@ -196,6 +197,22 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
           (result['overall_species'] ?? 'Unknown').toString();
       final freshness =
           (result['overall_freshness'] ?? 'Unknown').toString();
+
+      try {
+        await ScanHistoryService.save(
+          species: species,
+          freshness: freshness,
+          frontImagePath: file.path,
+          backImagePath: null,
+          summary: result,
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save to history: $e')),
+          );
+        }
+      }
 
       if (!mounted) return;
 

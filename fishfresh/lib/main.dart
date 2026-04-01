@@ -15,10 +15,6 @@ import 'screens/onboarding/onboarding_screen.dart';
 
 import 'services/storage_service.dart';
 
-// NEW: network monitor + listener
-import 'services/network_monitor.dart';
-import 'widgets/network_status_listener.dart';
-import 'widgets/network_listener_banner.dart';
 // GLOBALS
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -71,9 +67,6 @@ Future<void> main() async {
           IOSFlutterLocalNotificationsPlugin>()
       ?.requestPermissions(alert: true, sound: true, badge: false);
 
-  // Push + network
-  await NetworkMonitor.instance.start();
-
   runApp(const MyApp());
 }
 
@@ -86,13 +79,6 @@ class MyApp extends StatelessWidget {
       title: 'FishFresh',
       theme: ThemeData.dark(),
       scaffoldMessengerKey: rootScaffoldMessengerKey,
-builder: (context, child) =>
-    NetworkStatusListener(
-      child: NetworkStatusBanner(           // ⬅️ add this line
-        child: child!,
-        blockInteractionsWhenOffline: false, // set to true if you want to block taps when offline
-      ),
-    ),
       // ⬇️ Show Splash immediately; SplashDirector decides where to go while it animates
       home: const SplashDirector(),
       routes: {
